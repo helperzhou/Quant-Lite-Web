@@ -10,12 +10,17 @@ import {
   ExclamationCircleOutlined
 } from '@ant-design/icons'
 import { useState } from 'react'
+import type { Product } from '../types/type'
 
 const { Title, Text } = Typography
 
 const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun']
 
-const productIcon = item => {
+type Props = {
+  products: Product[]
+}
+
+const productIcon = (item?: Product) => {
   if (!item) return <GiftOutlined style={{ color: '#bcbcbc' }} />
   const name = (item.name || '').toLowerCase()
   if (item.type === 'service') {
@@ -30,19 +35,20 @@ const productIcon = item => {
   return <ShoppingCartOutlined style={{ color: '#1890ff' }} />
 }
 
-const asDisplayValue = item =>
+const asDisplayValue = (item: Product) =>
   item.type === 'service'
     ? Number(item.availableValue ?? 0)
     : Number(item.stock ?? item.currentStock ?? 0)
-const asDisplayPrice = item => Number(item.unitPrice ?? item.price ?? 0)
+const asDisplayPrice = (item: Product) =>
+  Number(item.unitPrice ?? item.price ?? 0)
 
 // Allows for products without trend data; fallbacks to 0s
-const getStockTrend = (item, months) =>
+const getStockTrend = (item: Product, months: string[]) =>
   Array.isArray(item?.stockTrend) && item.stockTrend.length === months.length
     ? item.stockTrend
     : Array(months.length).fill(asDisplayValue(item))
 
-const ProductStatisticsDashboard = ({ products }) => {
+const ProductStatisticsDashboard = ({ products }: Props) => {
   const [trendProduct, setTrendProduct] = useState(products[0]?.name || '')
 
   // Alerts & Suggestions
@@ -69,7 +75,7 @@ const ProductStatisticsDashboard = ({ products }) => {
   // Trends
   const selected = products.find(p => p.name === trendProduct)
   const lineData = selected
-    ? months.map((m, i) => getStockTrend(selected, months)[i])
+    ? months.map((_, i) => getStockTrend(selected, months)[i])
     : []
 
   // Bar Data (total for all products per month)
@@ -181,7 +187,7 @@ const ProductStatisticsDashboard = ({ products }) => {
         size='small'
         bordered
         dataSource={products}
-        renderItem={item => (
+        renderItem={(item: Product) => (
           <List.Item>
             <span style={{ marginRight: 10 }}>{productIcon(item)}</span>
             <span style={{ fontWeight: 500 }}>{item.name}</span>
@@ -225,8 +231,8 @@ const ProductStatisticsDashboard = ({ products }) => {
         }))}
         onChange={setTrendProduct}
         filterOption={(input, option) =>
-          (option?.label?.props?.children?.[1] || '')
-            .toLowerCase()
+          (option?.label as any)?.props?.children?.[1]
+            ?.toLowerCase()
             .includes(input.toLowerCase())
         }
         optionLabelProp='label'
@@ -243,7 +249,7 @@ const ProductStatisticsDashboard = ({ products }) => {
         <List
           itemLayout='horizontal'
           dataSource={alerts}
-          renderItem={item => (
+          renderItem={(item: Product) => (
             <List.Item>
               <List.Item.Meta
                 avatar={productIcon(item)}
@@ -271,7 +277,7 @@ const ProductStatisticsDashboard = ({ products }) => {
         <List
           itemLayout='horizontal'
           dataSource={suggestions}
-          renderItem={s => (
+          renderItem={(s: Product & { reason: string }) => (
             <List.Item>
               <List.Item.Meta
                 avatar={

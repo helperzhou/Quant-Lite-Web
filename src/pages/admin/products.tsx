@@ -30,6 +30,30 @@ import { useMediaQuery } from 'react-responsive'
 import ProductStatisticsDashboard from '../../components/ProductsDashboard'
 import type { Product } from '../../types/type'
 
+type ProductFormValues = {
+  name: string
+  type: 'product' | 'service'
+  price: number | string
+  qty?: number
+  minQty?: number
+  maxQty?: number
+  availableValue?: number
+}
+
+type ReceiptItem = {
+  name: string
+  quantity: number
+  unit_price: number
+  total_price: number
+  category: string
+}
+
+type ReceiptData = {
+  store_name: string
+  receipt_date: string
+  total_amount: number
+  items: ReceiptItem[]
+}
 const ProductsPage = () => {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
@@ -40,12 +64,12 @@ const ProductsPage = () => {
   const isMobile = useMediaQuery({ maxWidth: 767 })
   const [search, setSearch] = useState('')
   const [tabKey, setTabKey] = useState('list')
-  const [formType, setFormType] = useState('product')
   const [methodModal, setMethodModal] = useState(false)
-  const [addMethod, setAddMethod] = useState(null)
+  const [addMethod, setAddMethod] = useState<'manual' | 'image' | null>(null)
+  const [formType, setFormType] = useState<'product' | 'service'>('product')
   const [receiptModal, setReceiptModal] = useState(false)
   const [receiptLoading, setReceiptLoading] = useState(false)
-  const [receiptData, setReceiptData] = useState(null)
+  const [receiptData, setReceiptData] = useState<ReceiptData | null>(null)
 
   useEffect(() => {
     const unsub = onSnapshot(
@@ -87,7 +111,7 @@ const ProductsPage = () => {
     else setModalVisible(true)
   }
 
-  const handleSave = async (values: any) => {
+  const handleSave = async (values: Product) => {
     try {
       const data = {
         name: values.name,
@@ -121,7 +145,7 @@ const ProductsPage = () => {
   }
 
   const filteredProducts = products.filter(p =>
-    p.name.toLowerCase().includes(search.toLowerCase())
+    p.name?.toLowerCase().includes(search.toLowerCase())
   )
 
   const renderForm = () => (
@@ -240,7 +264,7 @@ const ProductsPage = () => {
               ))}
             </Space>
           ) : (
-            <Table
+            <Table<Product>
               columns={[
                 { title: 'Name', dataIndex: 'name', key: 'name' },
                 { title: 'Type', dataIndex: 'type', key: 'type' },

@@ -153,7 +153,7 @@ export default function CashInScreen () {
   )
 
   // Open cash-in modal for teller
-  const openTellerModal = teller => {
+  const openTellerModal = (teller: Teller) => {
     setSelectedTeller(teller)
     setCashInForm({ cash: '', bank: '', credit: '' })
     setCashInModalVisible(true)
@@ -161,29 +161,33 @@ export default function CashInScreen () {
 
   // Save cash-in to cashIns collection
   const handleSubmit = async () => {
-    const cash = parseFloat(cashInForm.cash) || 0
-    const bank = parseFloat(cashInForm.bank) || 0
-    const credit = parseFloat(cashInForm.credit) || 0
-    if (cash <= 0 && bank <= 0 && credit <= 0) {
-      message.error('Please enter at least one positive amount')
-      return
+    try {
+      const cash = parseFloat(cashInForm.cash) || 0
+      const bank = parseFloat(cashInForm.bank) || 0
+      const credit = parseFloat(cashInForm.credit) || 0
+      if (cash <= 0 && bank <= 0 && credit <= 0) {
+        message.error('Please enter at least one positive amount')
+        return
+      }
+      await addDoc(collection(db, 'cashIns'), {
+        branch: selectedTeller.branch,
+        tellerId: selectedTeller.id,
+        tellerName: selectedTeller.name,
+        cash,
+        bank,
+        credit,
+        type: 'cash',
+        date: Timestamp.now(),
+        companyName,
+        adminId: currentUser.uid
+      })
+      message.success(`Cash in recorded for ${selectedTeller.name}`)
+      setCashInModalVisible(false)
+      setSelectedTeller(null)
+      setCashInForm({ cash: '', bank: '', credit: '' })
+    } catch (error) {
+      message.error('Error saving cash in')
     }
-    await addDoc(collection(db, 'cashIns'), {
-      branch: selectedTeller.branch,
-      tellerId: selectedTeller.id,
-      tellerName: selectedTeller.name,
-      cash,
-      bank,
-      credit,
-      type: 'cash',
-      date: Timestamp.now(),
-      companyName,
-      adminId: currentUser.uid
-    })
-    message.success(`Cash in recorded for ${selectedTeller.name}`)
-    setCashInModalVisible(false)
-    setSelectedTeller(null)
-    setCashInForm({ cash: '', bank: '', credit: '' })
   }
 
   return (

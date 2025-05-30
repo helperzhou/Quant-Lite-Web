@@ -124,10 +124,10 @@ export default function POSScreen () {
   }
 
   // Remove from cart
-  const removeFromCart = id => setCart(cart.filter(i => i.id !== id))
+  const removeFromCart = (id: string) => setCart(cart.filter(i => i.id !== id))
 
   // Add new customer logic (inline in modal)
-  const handleAddCustomer = async values => {
+  const handleAddCustomer = async (values: Customer) => {
     const entry = { ...values, creditScore: 600 }
     const docRef = await addDoc(collection(db, 'customers'), entry)
     const customer = { ...entry, id: docRef.id }
@@ -204,12 +204,12 @@ export default function POSScreen () {
           name: selectedCustomer.name,
           amountDue: total,
           paidAmount: 0,
-          dueDate, // should be a string 'YYYY-MM-DD' or Date
+          dueDate,
           createdAt: Timestamp.now(),
           creditScore: selectedCustomer.creditScore ?? 600,
-          branch: tellerBranch, // if available
-          companyName: tellerCompanyName, // if available
-          products: cart // optional: what was sold
+          branch: tellerBranch,
+          companyName: currentUser?.companyName || '', // <---- FIXED
+          products: cart
         }
         await addDoc(collection(db, 'credits'), creditRecord)
       }
@@ -404,7 +404,16 @@ export default function POSScreen () {
         <div style={{ textAlign: 'center', marginBottom: 8 }}>
           <Text strong>Total: R{total.toFixed(2)}</Text>
         </div>
-        <Button type='primary' block onClick={handleSubmit}>
+        <Button
+          type='primary'
+          block
+          onClick={handleSubmit}
+          disabled={
+            !selectedCustomer ||
+            cart.length === 0 ||
+            (paymentType === 'Cash' && amountPaid < total)
+          }
+        >
           Submit Sale
         </Button>
       </Card>

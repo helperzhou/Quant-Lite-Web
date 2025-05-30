@@ -34,7 +34,7 @@ const AdminsPage = () => {
   const [loading, setLoading] = useState(true)
   const [drawerVisible, setDrawerVisible] = useState(false)
   const [modalVisible, setModalVisible] = useState(false)
-  const [form] = Form.useForm()
+  const [form] = Form.useForm<Admin>()
   const [editingAdmin, setEditingAdmin] = useState<Admin | null>(null)
   const isMobile = useMediaQuery({ maxWidth: 767 })
   const [search, setSearch] = useState('')
@@ -44,7 +44,7 @@ const AdminsPage = () => {
       collection(db, 'users'),
       snapshot => {
         const data = snapshot.docs
-          .map(doc => ({ id: doc.id, ...doc.data() }))
+          .map(doc => ({ id: doc.id, ...(doc.data() as Admin) }))
           .filter(user => user.userRole === 'admin')
         setAdmins(data)
         setLoading(false)
@@ -81,7 +81,7 @@ const AdminsPage = () => {
     }
   }
 
-  const handleSave = async (values: any) => {
+  const handleSave = async (values: Admin | any) => {
     setSaving(true)
     console.log(editingAdmin ? 'Updating admin...' : 'Creating admin...')
     try {
@@ -128,8 +128,8 @@ const AdminsPage = () => {
 
   const filteredAdmins = admins.filter(
     admin =>
-      admin.name.toLowerCase().includes(search.toLowerCase()) ||
-      admin.email.toLowerCase().includes(search.toLowerCase())
+      admin.name?.toLowerCase().includes(search.toLowerCase()) ||
+      admin.email?.toLowerCase().includes(search.toLowerCase())
   )
 
   return (
@@ -183,7 +183,7 @@ const AdminsPage = () => {
           ))}
         </Space>
       ) : (
-        <Table
+        <Table<Admin>
           columns={[
             { title: 'Name', dataIndex: 'name', key: 'name' },
             { title: 'Email', dataIndex: 'email', key: 'email' },

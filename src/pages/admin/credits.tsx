@@ -17,21 +17,22 @@ import { collection, doc, getDocs, updateDoc } from 'firebase/firestore'
 import { UserOutlined, SearchOutlined } from '@ant-design/icons'
 
 const { Title, Text } = Typography
+
 type Credit = {
   id: string
   name: string
   amountDue: number
   paidAmount: number
-  dueDate: string // or Date
+  dueDate: string
   creditScore: number
 }
 
-const CreditPaymentsScreen = () => {
-  const [tab, setTab] = useState('payments')
+const CreditPaymentsScreen: React.FC = () => {
+  const [tab, setTab] = useState<'payments' | 'history'>('payments')
   const [credits, setCredits] = useState<Credit[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedCredit, setSelectedCredit] = useState(null)
-  const [selectedCustomer, setSelectedCustomer] = useState(null)
+  const [selectedCredit, setSelectedCredit] = useState<Credit | null>(null)
+  const [selectedCustomer, setSelectedCustomer] = useState<string | null>(null)
   const [paymentAmount, setPaymentAmount] = useState('')
   const [modalVisible, setModalVisible] = useState(false)
   const [customerModal, setCustomerModal] = useState(false)
@@ -68,17 +69,21 @@ const CreditPaymentsScreen = () => {
             c.name?.trim().toLowerCase() ===
             selectedCustomer?.trim().toLowerCase()
         )
-        .sort((a, b) => new Date(b.dueDate) - new Date(a.dueDate))
+        .sort(
+          (a, b) =>
+            new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime()
+        )
     : []
 
   // Payment logic
-  const openModal = credit => {
+  const openModal = (credit: Credit) => {
     setSelectedCredit(credit)
     setPaymentAmount('')
     setModalVisible(true)
   }
 
   const handlePayment = async () => {
+    if (!selectedCredit) return
     const payAmount = parseFloat(paymentAmount)
     if (
       !payAmount ||
@@ -99,23 +104,26 @@ const CreditPaymentsScreen = () => {
       })
       // Refresh credits
       const snap = await getDocs(collection(db, 'credits'))
-      setCredits(snap.docs.map(doc => ({ ...doc.data(), id: doc.id })))
+      setCredits(
+        snap.docs.map(doc => ({ ...(doc.data() as Credit), id: doc.id }))
+      )
       setModalVisible(false)
+      setSelectedCredit(null)
       message.success('Payment recorded')
-    } catch (error) {
+    } catch (error: any) {
       message.error('Payment failed: ' + error.message)
     }
   }
 
   // Credit score color
-  const getCreditScoreColor = score => {
+  const getCreditScoreColor = (score: number) => {
     if (score >= 75) return 'green'
     if (score >= 70) return 'gold'
     return 'red'
   }
 
   // Due status chip
-  const dueStatus = credit => {
+  const dueStatus = (credit: Credit): [string, string] => {
     const today = new Date().toISOString().slice(0, 10)
     if (credit.dueDate < today && credit.amountDue > credit.paidAmount)
       return ['Overdue', 'red']
@@ -124,7 +132,7 @@ const CreditPaymentsScreen = () => {
   }
 
   // Responsive Card Style
-  const cardStyle = {
+  const cardStyle: React.CSSProperties = {
     marginBottom: 16,
     background: '#fff',
     borderRadius: 8,
@@ -140,7 +148,7 @@ const CreditPaymentsScreen = () => {
 
       <Tabs
         activeKey={tab}
-        onChange={setTab}
+        onChange={key => setTab(key as 'payments' | 'history')}
         centered
         items={[
           { key: 'payments', label: 'Payments' },

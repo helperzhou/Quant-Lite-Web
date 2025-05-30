@@ -43,7 +43,7 @@ const TellersPage = () => {
   const [drawerVisible, setDrawerVisible] = useState(false)
   const [modalVisible, setModalVisible] = useState(false)
   const [form] = Form.useForm()
-  const [editingTeller, setEditingTeller] = useState<Teller[]>([])
+  const [editingTeller, setEditingTeller] = useState<Teller | null>(null)
   const isMobile = useMediaQuery({ maxWidth: 767 })
   const [search, setSearch] = useState('')
   const [tabKey, setTabKey] = useState('list')
@@ -110,7 +110,7 @@ const TellersPage = () => {
     }
   }
 
-  const openForm = record => {
+  const openForm = (record: Teller | null = null) => {
     form.resetFields()
     if (record) {
       setEditingTeller(record)
@@ -127,7 +127,7 @@ const TellersPage = () => {
     }
   }
 
-  const handleSave = async values => {
+  const handleSave = async (values: any) => {
     try {
       if (editingTeller) {
         await updateDoc(doc(db, 'users', editingTeller.id), {

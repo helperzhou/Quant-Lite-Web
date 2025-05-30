@@ -38,14 +38,21 @@ export interface Admin {
   // ==================
   // Product
   // ==================
-  export interface Product {
+export type Product = {
     id: string
     name: string
-    type?: string
-    price?: number
-    unitPrice?: number
-    [key: string]: any // for any extra fields you might add dynamically
+    type: 'product' | 'service'
+    price?: number         // for service
+    unitPrice?: number     // for product
+    qty?: number
+    minQty?: number
+    maxQty?: number
+    currentStock?: number
+    availableValue?: number // for service
+    [key: string]: any     // if you use extra fields from AI receipt parsing
   }
+
+
 
   // ==================
   // CashIn
