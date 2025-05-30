@@ -17,10 +17,18 @@ import { collection, doc, getDocs, updateDoc } from 'firebase/firestore'
 import { UserOutlined, SearchOutlined } from '@ant-design/icons'
 
 const { Title, Text } = Typography
+type Credit = {
+  id: string
+  name: string
+  amountDue: number
+  paidAmount: number
+  dueDate: string // or Date
+  creditScore: number
+}
 
 const CreditPaymentsScreen = () => {
   const [tab, setTab] = useState('payments')
-  const [credits, setCredits] = useState([])
+  const [credits, setCredits] = useState<Credit[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedCredit, setSelectedCredit] = useState(null)
   const [selectedCustomer, setSelectedCustomer] = useState(null)
@@ -35,8 +43,10 @@ const CreditPaymentsScreen = () => {
       setLoading(true)
       try {
         const snap = await getDocs(collection(db, 'credits'))
-        setCredits(snap.docs.map(doc => ({ ...doc.data(), id: doc.id })))
-      } catch (error) {
+        setCredits(
+          snap.docs.map(doc => ({ ...(doc.data() as Credit), id: doc.id }))
+        )
+      } catch (error: any) {
         message.error('Failed to load credits: ' + error.message)
       }
       setLoading(false)
