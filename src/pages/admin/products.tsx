@@ -75,8 +75,22 @@ const ProductsPage = () => {
     const unsub = onSnapshot(
       collection(db, 'products'),
       snapshot => {
-        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+        const data: Product[] = snapshot.docs.map(doc => {
+          const d = doc.data() as Partial<Product>
+          return {
+            id: doc.id,
+            name: d.name || '',
+            type: d.type || 'product',
+            price: typeof d.price !== 'undefined' ? d.price : d.unitPrice ?? 0,
+            qty: d.qty ?? 0,
+            minQty: d.minQty ?? 0,
+            maxQty: d.maxQty ?? 0,
+            availableValue: d.availableValue ?? 0,
+            unitPrice: d.unitPrice ?? d.price ?? 0
+          }
+        })
         setProducts(data)
+
         setLoading(false)
       },
       err => {
@@ -104,7 +118,7 @@ const ProductsPage = () => {
       form.setFieldsValue({
         ...record,
         ...prefill,
-        price: prefill?.price || record?.price || record?.unitPrice || ''
+        price: prefill?.price ?? record?.price ?? record?.unitPrice ?? 0
       })
     }, 0)
     if (isMobile) setDrawerVisible(true)
@@ -118,7 +132,10 @@ const ProductsPage = () => {
         type: values.type,
         ...(values.type === 'product'
           ? {
-              unitPrice: parseFloat(values.price),
+              unitPrice:
+                typeof values.price === 'number'
+                  ? values.price
+                  : parseFloat(values.price),
               qty: values.qty || 0,
               minQty: values.minQty || 0,
               maxQty: values.maxQty || 0,
@@ -272,7 +289,7 @@ const ProductsPage = () => {
                   title: 'Price',
                   dataIndex: 'price',
                   key: 'price',
-                  render: (_, r) => `R${r.price || r.unitPrice}`
+                  render: (_, r) => `R${r.unitPrice ?? r.price ?? 0}`
                 },
                 {
                   title: 'Actions',
@@ -375,7 +392,8 @@ const ProductsPage = () => {
           accept='image/*'
           capture='environment'
           onChange={async e => {
-            const file = e.target.files[0]
+            const file = e.target.files?.[0]
+            if (!file) return
             if (file) {
               setReceiptLoading(true)
               setReceiptData(null)
