@@ -1,7 +1,6 @@
 import { Routes, Route } from 'react-router-dom'
 import LandingPage from './pages/LandingPage'
 import Login from './pages/auth/Login'
-import BaseLayout from './layouts/BaseLayout'
 import Register from './pages/auth/registration'
 import Onboarding from './pages/auth/onboarding'
 import SystemLayout from './layouts/SystemLayout'
@@ -16,7 +15,7 @@ import SaleScreen from './pages/tellers/pos'
 
 export default function App () {
   return (
-    <BaseLayout>
+   
       <Routes>
         <Route path='/' element={<LandingPage />} />
 
@@ -43,6 +42,6 @@ export default function App () {
           <Route index element={<CashInScreen />} />
         </Route>
       </Routes>
-    </BaseLayout>
+  
   )
 }
