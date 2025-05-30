@@ -28,6 +28,7 @@ import { useOutletContext } from 'react-router-dom'
 import type { Admin } from '../../../types/type'
 
 const AdminsPage = () => {
+  const [messageApi, contextHolder] = message.useMessage()
   const { currentUser } = useOutletContext()
   const [saving, setSaving] = useState(false)
   const [admins, setAdmins] = useState<Admin[]>([])
@@ -50,7 +51,7 @@ const AdminsPage = () => {
         setLoading(false)
       },
       err => {
-        message.error('Failed to fetch admins')
+        messageApi.error('Failed to fetch admins')
         setLoading(false)
       }
     )
@@ -60,9 +61,9 @@ const AdminsPage = () => {
   const handleDelete = async (id: string) => {
     try {
       await deleteDoc(doc(db, 'users', id))
-      message.success('Admin deleted')
+      messageApi.success('Admin deleted')
     } catch (err) {
-      message.error('Failed to delete admin')
+      messageApi.error('Failed to delete admin')
     }
   }
 
@@ -91,7 +92,7 @@ const AdminsPage = () => {
           ...values,
           userRole: 'admin'
         })
-        message.success('Admin updated')
+        messageApi.success('Admin updated')
         console.log('Admin updated successfully.')
       } else {
         console.log('Registering admin with:', values.email)
@@ -112,14 +113,16 @@ const AdminsPage = () => {
           workers: currentUser.workers || 0,
           monthlyTurnover: currentUser.monthlyTurnover || 0
         })
-        message.success(`Admin created with temp password: ${values.password}`)
+        messageApi.success(
+          `Admin created with temp password: ${values.password}`
+        )
         console.log('Admin Firestore document created.')
       }
 
       setDrawerVisible(false)
       setModalVisible(false)
     } catch (err) {
-      message.error('Error saving admin')
+      messageApi.error('Error saving admin')
       console.error('Admin save error:', err)
     } finally {
       setSaving(false)
@@ -133,166 +136,175 @@ const AdminsPage = () => {
   )
 
   return (
-    <div className='bg-white p-4 rounded-lg shadow-sm'>
-      <div className='flex justify-between items-center mb-4'>
-        <h2 className='text-xl font-semibold'>Admin Users</h2>
-        <Button
-          type='primary'
-          icon={<PlusOutlined />}
-          onClick={() => openForm(null)}
-        >
-          Add Admin
-        </Button>
-      </div>
+    <>
+      {contextHolder}{' '}
+      <div className='bg-white p-4 rounded-lg shadow-sm'>
+        <div className='flex justify-between items-center mb-4'>
+          <h2 className='text-xl font-semibold'>Admin Users</h2>
+          <Button
+            type='primary'
+            icon={<PlusOutlined />}
+            onClick={() => openForm(null)}
+          >
+            Add Admin
+          </Button>
+        </div>
 
-      <Input.Search
-        placeholder='Search admin by name or email'
-        value={search}
-        onChange={e => setSearch(e.target.value)}
-        className='mb-4'
-        allowClear
-      />
-
-      {isMobile ? (
-        <Space direction='vertical' style={{ width: '100%' }}>
-          {filteredAdmins.map(admin => (
-            <Card
-              key={admin.id}
-              title={admin.name}
-              size='small'
-              extra={
-                <Space>
-                  <Button
-                    icon={<EditOutlined />}
-                    onClick={() => openForm(admin)}
-                  />
-                  <Popconfirm
-                    title='Delete admin?'
-                    onConfirm={() => handleDelete(admin.id)}
-                    okText='Yes'
-                    cancelText='No'
-                  >
-                    <Button icon={<DeleteOutlined />} danger />
-                  </Popconfirm>
-                </Space>
-              }
-            >
-              <p>Email: {admin.email}</p>
-              <p>Phone: {admin.phone}</p>
-            </Card>
-          ))}
-        </Space>
-      ) : (
-        <Table<Admin>
-          columns={[
-            { title: 'Name', dataIndex: 'name', key: 'name' },
-            { title: 'Email', dataIndex: 'email', key: 'email' },
-            { title: 'Phone', dataIndex: 'phone', key: 'phone' },
-            {
-              title: 'Actions',
-              key: 'actions',
-              render: (_, record) => (
-                <Space>
-                  <Button
-                    icon={<EditOutlined />}
-                    onClick={() => openForm(record)}
-                  />
-                  <Popconfirm
-                    title='Delete admin?'
-                    onConfirm={() => handleDelete(record.id)}
-                    okText='Yes'
-                    cancelText='No'
-                  >
-                    <Button icon={<DeleteOutlined />} danger />
-                  </Popconfirm>
-                </Space>
-              )
-            }
-          ]}
-          dataSource={filteredAdmins}
-          rowKey='id'
-          loading={loading}
-          pagination={{ pageSize: 6 }}
-          scroll={{ x: true }}
+        <Input.Search
+          placeholder='Search admin by name or email'
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className='mb-4'
+          allowClear
         />
-      )}
 
-      <Drawer
-        title={editingAdmin ? 'Edit Admin' : 'Add Admin'}
-        open={isMobile && drawerVisible}
-        onClose={() => setDrawerVisible(false)}
-        placement='bottom'
-        height='auto'
-      >
-        <Form form={form} layout='vertical' onFinish={handleSave}>
-          <Form.Item name='name' label='Name' rules={[{ required: true }]}>
-            <Input placeholder='John Doe' />
-          </Form.Item>
-          <Form.Item
-            name='email'
-            label='Email'
-            rules={[{ required: true, type: 'email' }]}
-          >
-            <Input placeholder='email@example.com' disabled={!!editingAdmin} />
-          </Form.Item>
-          <Form.Item name='phone' label='Phone'>
-            <Input placeholder='+263...' />
-          </Form.Item>
-          {/* Only show password field when adding a new admin */}
-          {!editingAdmin && (
-            <Form.Item
-              name='password'
-              label='Password'
-              rules={[{ required: true, message: 'Password is required' }]}
-            >
-              <Input.Password placeholder='••••••••' />
-            </Form.Item>
-          )}
-          <Form.Item>
-            <Button type='primary' htmlType='submit' block loading={saving}>
-              {editingAdmin ? 'Update' : 'Create'}
-            </Button>
-          </Form.Item>
-        </Form>
-      </Drawer>
+        {isMobile ? (
+          <Space direction='vertical' style={{ width: '100%' }}>
+            {filteredAdmins.map(admin => (
+              <Card
+                key={admin.id}
+                title={admin.name}
+                size='small'
+                extra={
+                  <Space>
+                    <Button
+                      icon={<EditOutlined />}
+                      onClick={() => openForm(admin)}
+                    />
+                    <Popconfirm
+                      title='Delete admin?'
+                      onConfirm={() => handleDelete(admin.id)}
+                      okText='Yes'
+                      cancelText='No'
+                    >
+                      <Button icon={<DeleteOutlined />} danger />
+                    </Popconfirm>
+                  </Space>
+                }
+              >
+                <p>Email: {admin.email}</p>
+                <p>Phone: {admin.phone}</p>
+              </Card>
+            ))}
+          </Space>
+        ) : (
+          <Table<Admin>
+            columns={[
+              { title: 'Name', dataIndex: 'name', key: 'name' },
+              { title: 'Email', dataIndex: 'email', key: 'email' },
+              { title: 'Phone', dataIndex: 'phone', key: 'phone' },
+              {
+                title: 'Actions',
+                key: 'actions',
+                render: (_, record) => (
+                  <Space>
+                    <Button
+                      icon={<EditOutlined />}
+                      onClick={() => openForm(record)}
+                    />
+                    <Popconfirm
+                      title='Delete admin?'
+                      onConfirm={() => handleDelete(record.id)}
+                      okText='Yes'
+                      cancelText='No'
+                    >
+                      <Button icon={<DeleteOutlined />} danger />
+                    </Popconfirm>
+                  </Space>
+                )
+              }
+            ]}
+            dataSource={filteredAdmins}
+            rowKey='id'
+            loading={loading}
+            pagination={{ pageSize: 6 }}
+            scroll={{ x: true }}
+          />
+        )}
 
-      <Modal
-        title={editingAdmin ? 'Edit Admin' : 'Add Admin'}
-        open={!isMobile && modalVisible}
-        onCancel={() => setModalVisible(false)}
-        footer={null}
-      >
-        <Form form={form} layout='vertical' onFinish={handleSave}>
-          <Form.Item name='name' label='Name' rules={[{ required: true }]}>
-            <Input placeholder='John Doe' />
-          </Form.Item>
-          <Form.Item
-            name='email'
-            label='Email'
-            rules={[{ required: true, type: 'email' }]}
-          >
-            <Input placeholder='email@example.com' disabled={!!editingAdmin} />
-          </Form.Item>
-          <Form.Item name='phone' label='Phone'>
-            <Input placeholder='+263...' />
-          </Form.Item>
-          {!editingAdmin && (
-            <Form.Item
-              name='password'
-              label='Password'
-              rules={[{ required: true, message: 'Password is required' }]}
-            >
-              <Input.Password placeholder='••••••••' />
+        <Drawer
+          title={editingAdmin ? 'Edit Admin' : 'Add Admin'}
+          open={isMobile && drawerVisible}
+          onClose={() => setDrawerVisible(false)}
+          placement='bottom'
+          height='auto'
+        >
+          <Form form={form} layout='vertical' onFinish={handleSave}>
+            <Form.Item name='name' label='Name' rules={[{ required: true }]}>
+              <Input placeholder='John Doe' />
             </Form.Item>
-          )}
-          <Form.Item>
-            <Button type='primary' htmlType='submit' block>
-              {editingAdmin ? 'Update' : 'Create'}
-            </Button>
-          </Form.Item>
-        </Form>
-      </Modal>
-    </div>
+            <Form.Item
+              name='email'
+              label='Email'
+              rules={[{ required: true, type: 'email' }]}
+            >
+              <Input
+                placeholder='email@example.com'
+                disabled={!!editingAdmin}
+              />
+            </Form.Item>
+            <Form.Item name='phone' label='Phone'>
+              <Input placeholder='+263...' />
+            </Form.Item>
+            {/* Only show password field when adding a new admin */}
+            {!editingAdmin && (
+              <Form.Item
+                name='password'
+                label='Password'
+                rules={[{ required: true, message: 'Password is required' }]}
+              >
+                <Input.Password placeholder='••••••••' />
+              </Form.Item>
+            )}
+            <Form.Item>
+              <Button type='primary' htmlType='submit' block loading={saving}>
+                {editingAdmin ? 'Update' : 'Create'}
+              </Button>
+            </Form.Item>
+          </Form>
+        </Drawer>
+
+        <Modal
+          title={editingAdmin ? 'Edit Admin' : 'Add Admin'}
+          open={!isMobile && modalVisible}
+          onCancel={() => setModalVisible(false)}
+          footer={null}
+        >
+          <Form form={form} layout='vertical' onFinish={handleSave}>
+            <Form.Item name='name' label='Name' rules={[{ required: true }]}>
+              <Input placeholder='John Doe' />
+            </Form.Item>
+            <Form.Item
+              name='email'
+              label='Email'
+              rules={[{ required: true, type: 'email' }]}
+            >
+              <Input
+                placeholder='email@example.com'
+                disabled={!!editingAdmin}
+              />
+            </Form.Item>
+            <Form.Item name='phone' label='Phone'>
+              <Input placeholder='+263...' />
+            </Form.Item>
+            {!editingAdmin && (
+              <Form.Item
+                name='password'
+                label='Password'
+                rules={[{ required: true, message: 'Password is required' }]}
+              >
+                <Input.Password placeholder='••••••••' />
+              </Form.Item>
+            )}
+            <Form.Item>
+              <Button type='primary' htmlType='submit' block>
+                {editingAdmin ? 'Update' : 'Create'}
+              </Button>
+            </Form.Item>
+          </Form>
+        </Modal>
+      </div>
+    </>
   )
 }
 

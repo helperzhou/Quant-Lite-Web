@@ -33,10 +33,6 @@ export default function Login () {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(false)
 
-  useEffect(() => {
-    messageApi.info('This is a test message!')
-  }, [])
-
   const handleLogin = async (values: any) => {
     setLoading(true)
     setError(false)

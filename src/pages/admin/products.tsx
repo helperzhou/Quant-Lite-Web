@@ -55,6 +55,7 @@ type ReceiptData = {
   items: ReceiptItem[]
 }
 const ProductsPage = () => {
+  const [messageApi, contextHolder] = message.useMessage()
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [drawerVisible, setDrawerVisible] = useState(false)
@@ -94,7 +95,7 @@ const ProductsPage = () => {
         setLoading(false)
       },
       err => {
-        message.error('Failed to fetch products')
+        messageApi.error('Failed to fetch products')
         setLoading(false)
       }
     )
@@ -104,9 +105,9 @@ const ProductsPage = () => {
   const handleDelete = async (id: string) => {
     try {
       await deleteDoc(doc(db, 'products', id))
-      message.success('Product deleted')
+      messageApi.success('Product deleted')
     } catch (err) {
-      message.error('Failed to delete product')
+      messageApi.error('Failed to delete product')
     }
   }
 
@@ -149,15 +150,15 @@ const ProductsPage = () => {
 
       if (editingProduct) {
         await updateDoc(doc(db, 'products', editingProduct.id), data)
-        message.success('Product updated')
+        messageApi.success('Product updated')
       } else {
         await addDoc(collection(db, 'products'), data)
-        message.success('Product added')
+        messageApi.success('Product added')
       }
       setDrawerVisible(false)
       setModalVisible(false)
     } catch (err) {
-      message.error('Error saving product')
+      messageApi.error('Error saving product')
     }
   }
 
@@ -230,241 +231,244 @@ const ProductsPage = () => {
   )
 
   return (
-    <div className='bg-white p-4 rounded-lg shadow-sm'>
-      <Tabs activeKey={tabKey} onChange={key => setTabKey(key)}>
-        <Tabs.TabPane tab='Products List' key='list'>
-          <div className='flex justify-between items-center mb-4'>
-            <h2 className='text-xl font-semibold'>Products</h2>
-            <Button
-              type='primary'
-              icon={<PlusOutlined />}
-              onClick={() => setMethodModal(true)}
-            >
-              Add Product
-            </Button>
-          </div>
-          <Input.Search
-            placeholder='Search products by name'
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className='mb-4'
-            allowClear
-          />
-
-          {isMobile ? (
-            <Space direction='vertical' style={{ width: '100%' }}>
-              {filteredProducts.map(product => (
-                <Card
-                  key={product.id}
-                  title={product.name}
-                  size='small'
-                  extra={
-                    <Space>
-                      <Button
-                        icon={<EditOutlined />}
-                        onClick={() => openForm(product)}
-                      />
-                      <Popconfirm
-                        title='Delete product?'
-                        onConfirm={() => handleDelete(product.id)}
-                        okText='Yes'
-                        cancelText='No'
-                      >
-                        <Button icon={<DeleteOutlined />} danger />
-                      </Popconfirm>
-                    </Space>
-                  }
-                >
-                  <p>Type: {product.type}</p>
-                  <p>Price: R{product.price || product.unitPrice}</p>
-                </Card>
-              ))}
-            </Space>
-          ) : (
-            <Table<Product>
-              columns={[
-                { title: 'Name', dataIndex: 'name', key: 'name' },
-                { title: 'Type', dataIndex: 'type', key: 'type' },
-                {
-                  title: 'Price',
-                  dataIndex: 'price',
-                  key: 'price',
-                  render: (_, r) => `R${r.unitPrice ?? r.price ?? 0}`
-                },
-                {
-                  title: 'Actions',
-                  key: 'actions',
-                  render: (_, record) => (
-                    <Space>
-                      <Button
-                        icon={<EditOutlined />}
-                        onClick={() => openForm(record)}
-                      />
-                      <Popconfirm
-                        title='Delete product?'
-                        onConfirm={() => handleDelete(record.id)}
-                        okText='Yes'
-                        cancelText='No'
-                      >
-                        <Button icon={<DeleteOutlined />} danger />
-                      </Popconfirm>
-                    </Space>
-                  )
-                }
-              ]}
-              dataSource={filteredProducts}
-              rowKey='id'
-              loading={loading}
-              pagination={{ pageSize: 6 }}
-              scroll={{ x: true }}
+    <>
+      {contextHolder}{' '}
+      <div className='bg-white p-4 rounded-lg shadow-sm'>
+        <Tabs activeKey={tabKey} onChange={key => setTabKey(key)}>
+          <Tabs.TabPane tab='Products List' key='list'>
+            <div className='flex justify-between items-center mb-4'>
+              <h2 className='text-xl font-semibold'>Products</h2>
+              <Button
+                type='primary'
+                icon={<PlusOutlined />}
+                onClick={() => setMethodModal(true)}
+              >
+                Add Product
+              </Button>
+            </div>
+            <Input.Search
+              placeholder='Search products by name'
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className='mb-4'
+              allowClear
             />
-          )}
-        </Tabs.TabPane>
-        <Tabs.TabPane tab='Statistics' key='statistics'>
-          <div className='py-4'>
-            <ProductStatisticsDashboard products={products} />
-          </div>
-        </Tabs.TabPane>
-      </Tabs>
 
-      <Drawer
-        title={editingProduct ? 'Edit Product' : 'Add Product'}
-        open={isMobile && drawerVisible}
-        onClose={() => setDrawerVisible(false)}
-        placement='bottom'
-        height='auto'
-      >
-        {renderForm()}
-      </Drawer>
-
-      <Modal
-        title={editingProduct ? 'Edit Product' : 'Add Product'}
-        open={!isMobile && modalVisible}
-        onCancel={() => setModalVisible(false)}
-        footer={null}
-      >
-        {renderForm()}
-      </Modal>
-
-      <Modal
-        open={methodModal}
-        title='How would you like to add?'
-        onCancel={() => setMethodModal(false)}
-        footer={null}
-        centered
-      >
-        <Space direction='vertical' style={{ width: '100%' }}>
-          <Button
-            block
-            size='large'
-            onClick={() => {
-              setAddMethod('manual')
-              setMethodModal(false)
-              openForm(null)
-            }}
-          >
-            Manual Entry
-          </Button>
-          <Button
-            block
-            size='large'
-            type='dashed'
-            onClick={() => {
-              setAddMethod('image')
-              setMethodModal(false)
-              setReceiptModal(true)
-            }}
-          >
-            Scan/Upload Receipt
-          </Button>
-        </Space>
-      </Modal>
-
-      <Modal
-        open={receiptModal}
-        title='Upload or Capture Receipt'
-        onCancel={() => setReceiptModal(false)}
-        footer={null}
-        centered
-      >
-        <input
-          type='file'
-          accept='image/*'
-          capture='environment'
-          onChange={async e => {
-            const file = e.target.files?.[0]
-            if (!file) return
-            if (file) {
-              setReceiptLoading(true)
-              setReceiptData(null)
-              try {
-                const formData = new FormData()
-                formData.append('image', file)
-                const res = await fetch(
-                  'https://rairo-pos-image-api.hf.space/process-receipt',
-                  { method: 'POST', body: formData }
-                )
-                const data = await res.json()
-                if (data.success && data.data?.items?.length) {
-                  setReceiptData(data.data)
-                } else {
-                  message.error('Could not extract receipt info.')
-                }
-              } catch (err) {
-                message.error('Failed to process image.')
-              } finally {
-                setReceiptLoading(false)
-              }
-            }
-          }}
-        />
-        {receiptLoading && <p>Extracting details...</p>}
-        {receiptData && (
-          <div style={{ marginTop: 12 }}>
-            <p>
-              <b>Store:</b> {receiptData.store_name} <br />
-              <b>Date:</b> {receiptData.receipt_date} <br />
-              <b>Total:</b> R{receiptData.total_amount}
-            </p>
-            {receiptData.items && (
-              <ul>
-                {receiptData.items.map((item, i) => (
-                  <li key={i}>
-                    {item.name} x{item.quantity} @ R{item.unit_price} — R
-                    {item.total_price} [{item.category}]
-                  </li>
+            {isMobile ? (
+              <Space direction='vertical' style={{ width: '100%' }}>
+                {filteredProducts.map(product => (
+                  <Card
+                    key={product.id}
+                    title={product.name}
+                    size='small'
+                    extra={
+                      <Space>
+                        <Button
+                          icon={<EditOutlined />}
+                          onClick={() => openForm(product)}
+                        />
+                        <Popconfirm
+                          title='Delete product?'
+                          onConfirm={() => handleDelete(product.id)}
+                          okText='Yes'
+                          cancelText='No'
+                        >
+                          <Button icon={<DeleteOutlined />} danger />
+                        </Popconfirm>
+                      </Space>
+                    }
+                  >
+                    <p>Type: {product.type}</p>
+                    <p>Price: R{product.price || product.unitPrice}</p>
+                  </Card>
                 ))}
-              </ul>
+              </Space>
+            ) : (
+              <Table<Product>
+                columns={[
+                  { title: 'Name', dataIndex: 'name', key: 'name' },
+                  { title: 'Type', dataIndex: 'type', key: 'type' },
+                  {
+                    title: 'Price',
+                    dataIndex: 'price',
+                    key: 'price',
+                    render: (_, r) => `R${r.unitPrice ?? r.price ?? 0}`
+                  },
+                  {
+                    title: 'Actions',
+                    key: 'actions',
+                    render: (_, record) => (
+                      <Space>
+                        <Button
+                          icon={<EditOutlined />}
+                          onClick={() => openForm(record)}
+                        />
+                        <Popconfirm
+                          title='Delete product?'
+                          onConfirm={() => handleDelete(record.id)}
+                          okText='Yes'
+                          cancelText='No'
+                        >
+                          <Button icon={<DeleteOutlined />} danger />
+                        </Popconfirm>
+                      </Space>
+                    )
+                  }
+                ]}
+                dataSource={filteredProducts}
+                rowKey='id'
+                loading={loading}
+                pagination={{ pageSize: 6 }}
+                scroll={{ x: true }}
+              />
             )}
+          </Tabs.TabPane>
+          <Tabs.TabPane tab='Statistics' key='statistics'>
+            <div className='py-4'>
+              <ProductStatisticsDashboard products={products} />
+            </div>
+          </Tabs.TabPane>
+        </Tabs>
+
+        <Drawer
+          title={editingProduct ? 'Edit Product' : 'Add Product'}
+          open={isMobile && drawerVisible}
+          onClose={() => setDrawerVisible(false)}
+          placement='bottom'
+          height='auto'
+        >
+          {renderForm()}
+        </Drawer>
+
+        <Modal
+          title={editingProduct ? 'Edit Product' : 'Add Product'}
+          open={!isMobile && modalVisible}
+          onCancel={() => setModalVisible(false)}
+          footer={null}
+        >
+          {renderForm()}
+        </Modal>
+
+        <Modal
+          open={methodModal}
+          title='How would you like to add?'
+          onCancel={() => setMethodModal(false)}
+          footer={null}
+          centered
+        >
+          <Space direction='vertical' style={{ width: '100%' }}>
             <Button
-              type='primary'
-              style={{ marginTop: 10 }}
-              onClick={() => {
-                setReceiptModal(false)
-                setTimeout(() => {
-                  setEditingProduct(null)
-                  setAddMethod('manual')
-                  form.setFieldsValue({
-                    name: receiptData.items[0]?.name || '',
-                    type:
-                      receiptData.items[0]?.category === 'stock'
-                        ? 'product'
-                        : 'service',
-                    price: receiptData.items[0]?.unit_price || '',
-                    qty: receiptData.items[0]?.quantity || ''
-                  })
-                  if (isMobile) setDrawerVisible(true)
-                  else setModalVisible(true)
-                }, 300)
-              }}
               block
+              size='large'
+              onClick={() => {
+                setAddMethod('manual')
+                setMethodModal(false)
+                openForm(null)
+              }}
             >
-              Use & Edit These Details
+              Manual Entry
             </Button>
-          </div>
-        )}
-      </Modal>
-    </div>
+            <Button
+              block
+              size='large'
+              type='dashed'
+              onClick={() => {
+                setAddMethod('image')
+                setMethodModal(false)
+                setReceiptModal(true)
+              }}
+            >
+              Scan/Upload Receipt
+            </Button>
+          </Space>
+        </Modal>
+
+        <Modal
+          open={receiptModal}
+          title='Upload or Capture Receipt'
+          onCancel={() => setReceiptModal(false)}
+          footer={null}
+          centered
+        >
+          <input
+            type='file'
+            accept='image/*'
+            capture='environment'
+            onChange={async e => {
+              const file = e.target.files?.[0]
+              if (!file) return
+              if (file) {
+                setReceiptLoading(true)
+                setReceiptData(null)
+                try {
+                  const formData = new FormData()
+                  formData.append('image', file)
+                  const res = await fetch(
+                    'https://rairo-pos-image-api.hf.space/process-receipt',
+                    { method: 'POST', body: formData }
+                  )
+                  const data = await res.json()
+                  if (data.success && data.data?.items?.length) {
+                    setReceiptData(data.data)
+                  } else {
+                    messageApi.error('Could not extract receipt info.')
+                  }
+                } catch (err) {
+                  messageApi.error('Failed to process image.')
+                } finally {
+                  setReceiptLoading(false)
+                }
+              }
+            }}
+          />
+          {receiptLoading && <p>Extracting details...</p>}
+          {receiptData && (
+            <div style={{ marginTop: 12 }}>
+              <p>
+                <b>Store:</b> {receiptData.store_name} <br />
+                <b>Date:</b> {receiptData.receipt_date} <br />
+                <b>Total:</b> R{receiptData.total_amount}
+              </p>
+              {receiptData.items && (
+                <ul>
+                  {receiptData.items.map((item, i) => (
+                    <li key={i}>
+                      {item.name} x{item.quantity} @ R{item.unit_price} — R
+                      {item.total_price} [{item.category}]
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <Button
+                type='primary'
+                style={{ marginTop: 10 }}
+                onClick={() => {
+                  setReceiptModal(false)
+                  setTimeout(() => {
+                    setEditingProduct(null)
+                    setAddMethod('manual')
+                    form.setFieldsValue({
+                      name: receiptData.items[0]?.name || '',
+                      type:
+                        receiptData.items[0]?.category === 'stock'
+                          ? 'product'
+                          : 'service',
+                      price: receiptData.items[0]?.unit_price || '',
+                      qty: receiptData.items[0]?.quantity || ''
+                    })
+                    if (isMobile) setDrawerVisible(true)
+                    else setModalVisible(true)
+                  }, 300)
+                }}
+                block
+              >
+                Use & Edit These Details
+              </Button>
+            </div>
+          )}
+        </Modal>
+      </div>
+    </>
   )
 }
 

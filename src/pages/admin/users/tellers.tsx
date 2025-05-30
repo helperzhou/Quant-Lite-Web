@@ -37,6 +37,7 @@ import { useOutletContext } from 'react-router-dom'
 import type { Teller } from '../../../types/type'
 
 const TellersPage = () => {
+  const [messageApi, contextHolder] = message.useMessage()
   const { currentUser } = useOutletContext()
   const [tellers, setTellers] = useState<Teller[]>([])
   const [loading, setLoading] = useState(true)
@@ -66,7 +67,7 @@ const TellersPage = () => {
         setLoading(false)
       },
       err => {
-        message.error('Failed to fetch tellers')
+        messageApi.error('Failed to fetch tellers')
         setLoading(false)
       }
     )
@@ -104,9 +105,9 @@ const TellersPage = () => {
   const handleDelete = async id => {
     try {
       await deleteDoc(doc(db, 'users', id))
-      message.success('Teller deleted')
+      messageApi.success('Teller deleted')
     } catch (err) {
-      message.error('Failed to delete teller')
+      messageApi.error('Failed to delete teller')
     }
   }
 
@@ -134,7 +135,7 @@ const TellersPage = () => {
           ...values,
           userRole: 'teller'
         })
-        message.success('Teller updated')
+        messageApi.success('Teller updated')
       } else {
         const cred = await createUserWithEmailAndPassword(
           auth,
@@ -152,12 +153,12 @@ const TellersPage = () => {
           workers: currentUser.workers || 0,
           monthlyTurnover: currentUser.monthlyTurnover || 0
         })
-        message.success(`Teller created with password: ${values.password}`)
+        messageApi.success(`Teller created with password: ${values.password}`)
       }
       setDrawerVisible(false)
       setModalVisible(false)
     } catch (err) {
-      message.error('Error saving teller')
+      messageApi.error('Error saving teller')
     }
   }
 
@@ -224,223 +225,226 @@ const TellersPage = () => {
   )
 
   return (
-    <div className='bg-white p-4 rounded-lg shadow-sm'>
-      <Tabs activeKey={tabKey} onChange={key => setTabKey(key)}>
-        <Tabs.TabPane tab='Tellers List' key='list'>
-          <div className='flex justify-between items-center mb-4'>
-            <h2 className='text-xl font-semibold'>Teller Users</h2>
-            <Button
-              type='primary'
-              icon={<PlusOutlined />}
-              onClick={() => openForm(null)}
-            >
-              Add Teller
-            </Button>
-          </div>
-          <Input.Search
-            placeholder='Search teller by name or email'
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className='mb-4'
-            allowClear
-          />
+    <>
+      {contextHolder}{' '}
+      <div className='bg-white p-4 rounded-lg shadow-sm'>
+        <Tabs activeKey={tabKey} onChange={key => setTabKey(key)}>
+          <Tabs.TabPane tab='Tellers List' key='list'>
+            <div className='flex justify-between items-center mb-4'>
+              <h2 className='text-xl font-semibold'>Teller Users</h2>
+              <Button
+                type='primary'
+                icon={<PlusOutlined />}
+                onClick={() => openForm(null)}
+              >
+                Add Teller
+              </Button>
+            </div>
+            <Input.Search
+              placeholder='Search teller by name or email'
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className='mb-4'
+              allowClear
+            />
 
-          {isMobile ? (
-            <Space direction='vertical' style={{ width: '100%' }}>
-              {filteredTellers.map(teller => (
-                <Card
-                  key={teller.id}
-                  title={teller.name}
-                  size='small'
-                  extra={
-                    <Space>
-                      <Button
-                        icon={<EditOutlined />}
-                        onClick={() => openForm(teller)}
-                      />
-                      <Popconfirm
-                        title='Delete teller?'
-                        onConfirm={() => handleDelete(teller.id)}
-                        okText='Yes'
-                        cancelText='No'
-                      >
-                        <Button icon={<DeleteOutlined />} danger />
-                      </Popconfirm>
-                    </Space>
-                  }
-                >
-                  <p>Email: {teller.email}</p>
-                  <p>Phone: {teller.phone}</p>
-                  <p>
-                    Branch: <Tag>{teller.branch}</Tag>
-                  </p>
-                </Card>
-              ))}
-            </Space>
-          ) : (
-            <Table
-              columns={[
-                { title: 'Name', dataIndex: 'name', key: 'name' },
-                { title: 'Email', dataIndex: 'email', key: 'email' },
-                { title: 'Phone', dataIndex: 'phone', key: 'phone' },
-                {
-                  title: 'Branch',
-                  dataIndex: 'branch',
-                  key: 'branch',
-                  render: branch => <Tag>{branch}</Tag>
-                },
-                {
-                  title: 'Actions',
-                  key: 'actions',
-                  render: (_, record) => (
-                    <Space>
-                      <Button
-                        icon={<EditOutlined />}
-                        onClick={() => openForm(record)}
-                      />
-                      <Popconfirm
-                        title='Delete teller?'
-                        onConfirm={() => handleDelete(record.id)}
-                        okText='Yes'
-                        cancelText='No'
-                      >
-                        <Button icon={<DeleteOutlined />} danger />
-                      </Popconfirm>
-                    </Space>
-                  )
-                }
-              ]}
-              dataSource={filteredTellers}
-              rowKey='id'
-              loading={loading}
-              pagination={{ pageSize: 6 }}
-              scroll={{ x: true }}
-            />
-          )}
-        </Tabs.TabPane>
-        <Tabs.TabPane tab='Performance' key='performance'>
-          <div className='mb-4'>
-            <DatePicker
-              value={selectedDate}
-              onChange={setSelectedDate}
-              allowClear={false}
-              format='YYYY-MM-DD'
-              style={{ marginBottom: 16 }}
-            />
-          </div>
-          {tellers.length === 0 ? (
-            <Empty description='No tellers found' />
-          ) : (
-            <Table
-              columns={[
-                { title: 'Teller', dataIndex: 'name', key: 'name' },
-                {
-                  title: 'Branch',
-                  dataIndex: 'branch',
-                  key: 'branch',
-                  render: branch => <Tag>{branch}</Tag>
-                },
-                {
-                  title: 'Cash In',
-                  key: 'cash',
-                  render: (_, teller: Teller) => {
-                    // All this teller's cash-ins today
-                    const cash = cashIns
-                      .filter(
-                        cash =>
-                          cash.tellerId === teller.uid ||
-                          cash.tellerId === teller.id
-                      )
-                      .reduce((sum, ins) => sum + (ins.cash || 0), 0)
-                    return `R${cash.toFixed(2)}`
-                  }
-                },
-                {
-                  title: 'Bank',
-                  key: 'bank',
-                  render: (_, teller: Teller) => {
-                    const bank = cashIns
-                      .filter(
-                        cash =>
-                          cash.tellerId === teller.uid ||
-                          cash.tellerId === teller.id
-                      )
-                      .reduce((sum, ins) => sum + (ins.bank || 0), 0)
-                    return `R${bank.toFixed(2)}`
-                  }
-                },
-                {
-                  title: 'Credit',
-                  key: 'credit',
-                  render: (_, teller: Teller) => {
-                    const credit = cashIns
-                      .filter(
-                        cash =>
-                          cash.tellerId === teller.uid ||
-                          cash.tellerId === teller.id
-                      )
-                      .reduce((sum, ins) => sum + (ins.credit || 0), 0)
-                    return `R${credit.toFixed(2)}`
-                  }
-                },
-                {
-                  title: 'Expected',
-                  key: 'expected',
-                  render: (_, teller: Teller) => {
-                    const expected = cashInExpectations[teller.branch] || 0
-                    return `R${expected.toFixed(2)}`
-                  }
-                },
-                {
-                  title: 'Status',
-                  key: 'status',
-                  render: (_, teller: Teller) => {
-                    const branchExpected =
-                      cashInExpectations[teller.branch] || 0
-                    const tellerCashIns = cashIns
-                      .filter(
-                        cash =>
-                          cash.tellerId === teller.uid ||
-                          cash.tellerId === teller.id
-                      )
-                      .reduce((sum, ins) => sum + (ins.cash || 0), 0)
-                    const isTargetMet = tellerCashIns >= branchExpected
-                    return (
-                      <Tag color={isTargetMet ? 'green' : 'red'}>
-                        {isTargetMet ? '✔ Over Target' : '✖ Below Target'}
-                      </Tag>
+            {isMobile ? (
+              <Space direction='vertical' style={{ width: '100%' }}>
+                {filteredTellers.map(teller => (
+                  <Card
+                    key={teller.id}
+                    title={teller.name}
+                    size='small'
+                    extra={
+                      <Space>
+                        <Button
+                          icon={<EditOutlined />}
+                          onClick={() => openForm(teller)}
+                        />
+                        <Popconfirm
+                          title='Delete teller?'
+                          onConfirm={() => handleDelete(teller.id)}
+                          okText='Yes'
+                          cancelText='No'
+                        >
+                          <Button icon={<DeleteOutlined />} danger />
+                        </Popconfirm>
+                      </Space>
+                    }
+                  >
+                    <p>Email: {teller.email}</p>
+                    <p>Phone: {teller.phone}</p>
+                    <p>
+                      Branch: <Tag>{teller.branch}</Tag>
+                    </p>
+                  </Card>
+                ))}
+              </Space>
+            ) : (
+              <Table
+                columns={[
+                  { title: 'Name', dataIndex: 'name', key: 'name' },
+                  { title: 'Email', dataIndex: 'email', key: 'email' },
+                  { title: 'Phone', dataIndex: 'phone', key: 'phone' },
+                  {
+                    title: 'Branch',
+                    dataIndex: 'branch',
+                    key: 'branch',
+                    render: branch => <Tag>{branch}</Tag>
+                  },
+                  {
+                    title: 'Actions',
+                    key: 'actions',
+                    render: (_, record) => (
+                      <Space>
+                        <Button
+                          icon={<EditOutlined />}
+                          onClick={() => openForm(record)}
+                        />
+                        <Popconfirm
+                          title='Delete teller?'
+                          onConfirm={() => handleDelete(record.id)}
+                          okText='Yes'
+                          cancelText='No'
+                        >
+                          <Button icon={<DeleteOutlined />} danger />
+                        </Popconfirm>
+                      </Space>
                     )
                   }
-                }
-              ]}
-              dataSource={tellers}
-              rowKey='id'
-              pagination={false}
-              scroll={{ x: true }}
-            />
-          )}
-        </Tabs.TabPane>
-      </Tabs>
+                ]}
+                dataSource={filteredTellers}
+                rowKey='id'
+                loading={loading}
+                pagination={{ pageSize: 6 }}
+                scroll={{ x: true }}
+              />
+            )}
+          </Tabs.TabPane>
+          <Tabs.TabPane tab='Performance' key='performance'>
+            <div className='mb-4'>
+              <DatePicker
+                value={selectedDate}
+                onChange={setSelectedDate}
+                allowClear={false}
+                format='YYYY-MM-DD'
+                style={{ marginBottom: 16 }}
+              />
+            </div>
+            {tellers.length === 0 ? (
+              <Empty description='No tellers found' />
+            ) : (
+              <Table
+                columns={[
+                  { title: 'Teller', dataIndex: 'name', key: 'name' },
+                  {
+                    title: 'Branch',
+                    dataIndex: 'branch',
+                    key: 'branch',
+                    render: branch => <Tag>{branch}</Tag>
+                  },
+                  {
+                    title: 'Cash In',
+                    key: 'cash',
+                    render: (_, teller: Teller) => {
+                      // All this teller's cash-ins today
+                      const cash = cashIns
+                        .filter(
+                          cash =>
+                            cash.tellerId === teller.uid ||
+                            cash.tellerId === teller.id
+                        )
+                        .reduce((sum, ins) => sum + (ins.cash || 0), 0)
+                      return `R${cash.toFixed(2)}`
+                    }
+                  },
+                  {
+                    title: 'Bank',
+                    key: 'bank',
+                    render: (_, teller: Teller) => {
+                      const bank = cashIns
+                        .filter(
+                          cash =>
+                            cash.tellerId === teller.uid ||
+                            cash.tellerId === teller.id
+                        )
+                        .reduce((sum, ins) => sum + (ins.bank || 0), 0)
+                      return `R${bank.toFixed(2)}`
+                    }
+                  },
+                  {
+                    title: 'Credit',
+                    key: 'credit',
+                    render: (_, teller: Teller) => {
+                      const credit = cashIns
+                        .filter(
+                          cash =>
+                            cash.tellerId === teller.uid ||
+                            cash.tellerId === teller.id
+                        )
+                        .reduce((sum, ins) => sum + (ins.credit || 0), 0)
+                      return `R${credit.toFixed(2)}`
+                    }
+                  },
+                  {
+                    title: 'Expected',
+                    key: 'expected',
+                    render: (_, teller: Teller) => {
+                      const expected = cashInExpectations[teller.branch] || 0
+                      return `R${expected.toFixed(2)}`
+                    }
+                  },
+                  {
+                    title: 'Status',
+                    key: 'status',
+                    render: (_, teller: Teller) => {
+                      const branchExpected =
+                        cashInExpectations[teller.branch] || 0
+                      const tellerCashIns = cashIns
+                        .filter(
+                          cash =>
+                            cash.tellerId === teller.uid ||
+                            cash.tellerId === teller.id
+                        )
+                        .reduce((sum, ins) => sum + (ins.cash || 0), 0)
+                      const isTargetMet = tellerCashIns >= branchExpected
+                      return (
+                        <Tag color={isTargetMet ? 'green' : 'red'}>
+                          {isTargetMet ? '✔ Over Target' : '✖ Below Target'}
+                        </Tag>
+                      )
+                    }
+                  }
+                ]}
+                dataSource={tellers}
+                rowKey='id'
+                pagination={false}
+                scroll={{ x: true }}
+              />
+            )}
+          </Tabs.TabPane>
+        </Tabs>
 
-      <Drawer
-        title={editingTeller ? 'Edit Teller' : 'Add Teller'}
-        open={isMobile && drawerVisible}
-        onClose={() => setDrawerVisible(false)}
-        placement='bottom'
-        height='auto'
-      >
-        {renderForm()}
-      </Drawer>
+        <Drawer
+          title={editingTeller ? 'Edit Teller' : 'Add Teller'}
+          open={isMobile && drawerVisible}
+          onClose={() => setDrawerVisible(false)}
+          placement='bottom'
+          height='auto'
+        >
+          {renderForm()}
+        </Drawer>
 
-      <Modal
-        title={editingTeller ? 'Edit Teller' : 'Add Teller'}
-        open={!isMobile && modalVisible}
-        onCancel={() => setModalVisible(false)}
-        footer={null}
-      >
-        {renderForm()}
-      </Modal>
-    </div>
+        <Modal
+          title={editingTeller ? 'Edit Teller' : 'Add Teller'}
+          open={!isMobile && modalVisible}
+          onCancel={() => setModalVisible(false)}
+          footer={null}
+        >
+          {renderForm()}
+        </Modal>
+      </div>
+    </>
   )
 }
 

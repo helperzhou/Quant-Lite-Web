@@ -38,7 +38,7 @@ export default function Register () {
     if (password !== confirmPassword) {
       setShake(true)
       setTimeout(() => setShake(false), 600)
-      return message.error('Passwords do not match.')
+      return messageApi.error('Passwords do not match.')
     }
 
     setLoading(true)
