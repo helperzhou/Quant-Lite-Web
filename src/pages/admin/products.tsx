@@ -39,7 +39,12 @@ const ProductsPage = () => {
   const isMobile = useMediaQuery({ maxWidth: 767 })
   const [search, setSearch] = useState('')
   const [tabKey, setTabKey] = useState('list')
-  const [formType, setFormType] = useState('product') // new state
+  const [formType, setFormType] = useState('product')
+  const [methodModal, setMethodModal] = useState(false)
+  const [addMethod, setAddMethod] = useState(null)
+  const [receiptModal, setReceiptModal] = useState(false)
+  const [receiptLoading, setReceiptLoading] = useState(false)
+  const [receiptData, setReceiptData] = useState(null)
 
   useEffect(() => {
     const unsub = onSnapshot(
@@ -66,24 +71,19 @@ const ProductsPage = () => {
     }
   }
 
-  const openForm = record => {
+  const openForm = (record = null, prefill = null) => {
     form.resetFields()
-    if (record) {
-      setEditingProduct(record)
-      setTimeout(() => {
-        form.setFieldsValue({
-          ...record,
-          price: record.price || record.unitPrice
-        })
-      }, 0)
-    } else {
-      setEditingProduct(null)
-    }
-    if (isMobile) {
-      setDrawerVisible(true)
-    } else {
-      setModalVisible(true)
-    }
+    setEditingProduct(record)
+    setFormType(prefill?.type || record?.type || 'product')
+    setTimeout(() => {
+      form.setFieldsValue({
+        ...record,
+        ...prefill,
+        price: prefill?.price || record?.price || record?.unitPrice || ''
+      })
+    }, 0)
+    if (isMobile) setDrawerVisible(true)
+    else setModalVisible(true)
   }
 
   const handleSave = async values => {
@@ -139,8 +139,8 @@ const ProductsPage = () => {
         rules={[{ required: true, message: 'Please select Type' }]}
       >
         <Select placeholder='Select type'>
-          <Option value='product'>Product</Option>
-          <Option value='service'>Service</Option>
+          <Select.Option value='product'>Product</Select.Option>
+          <Select.Option value='service'>Service</Select.Option>
         </Select>
       </Form.Item>
       <Form.Item
@@ -157,7 +157,6 @@ const ProductsPage = () => {
       >
         <InputNumber min={0} style={{ width: '100%' }} />
       </Form.Item>
-      {/* Show these only for product */}
       {formType === 'product' && (
         <>
           <Form.Item name='qty' label='Quantity'>
@@ -171,7 +170,6 @@ const ProductsPage = () => {
           </Form.Item>
         </>
       )}
-      {/* Available Value is only for service */}
       {formType === 'service' && (
         <Form.Item
           name='availableValue'
@@ -198,7 +196,7 @@ const ProductsPage = () => {
             <Button
               type='primary'
               icon={<PlusOutlined />}
-              onClick={() => openForm(null)}
+              onClick={() => setMethodModal(true)}
             >
               Add Product
             </Button>
@@ -304,6 +302,124 @@ const ProductsPage = () => {
         footer={null}
       >
         {renderForm()}
+      </Modal>
+
+      <Modal
+        open={methodModal}
+        title='How would you like to add?'
+        onCancel={() => setMethodModal(false)}
+        footer={null}
+        centered
+      >
+        <Space direction='vertical' style={{ width: '100%' }}>
+          <Button
+            block
+            size='large'
+            onClick={() => {
+              setAddMethod('manual')
+              setMethodModal(false)
+              openForm(null)
+            }}
+          >
+            Manual Entry
+          </Button>
+          <Button
+            block
+            size='large'
+            type='dashed'
+            onClick={() => {
+              setAddMethod('image')
+              setMethodModal(false)
+              setReceiptModal(true)
+            }}
+          >
+            Scan/Upload Receipt
+          </Button>
+        </Space>
+      </Modal>
+
+      <Modal
+        open={receiptModal}
+        title='Upload or Capture Receipt'
+        onCancel={() => setReceiptModal(false)}
+        footer={null}
+        centered
+      >
+        <input
+          type='file'
+          accept='image/*'
+          capture='environment'
+          onChange={async e => {
+            const file = e.target.files[0]
+            if (file) {
+              setReceiptLoading(true)
+              setReceiptData(null)
+              try {
+                const formData = new FormData()
+                formData.append('image', file)
+                const res = await fetch(
+                  'https://rairo-pos-image-api.hf.space/process-receipt',
+                  { method: 'POST', body: formData }
+                )
+                const data = await res.json()
+                if (data.success && data.data?.items?.length) {
+                  setReceiptData(data.data)
+                } else {
+                  message.error('Could not extract receipt info.')
+                }
+              } catch (err) {
+                message.error('Failed to process image.')
+              } finally {
+                setReceiptLoading(false)
+              }
+            }
+          }}
+        />
+        {receiptLoading && <p>Extracting details...</p>}
+        {receiptData && (
+          <div style={{ marginTop: 12 }}>
+            <p>
+              <b>Store:</b> {receiptData.store_name} <br />
+              <b>Date:</b> {receiptData.receipt_date} <br />
+              <b>Total:</b> R{receiptData.total_amount}
+            </p>
+            {receiptData.items && (
+              <ul>
+                {receiptData.items.map((item, i) => (
+                  <li key={i}>
+                    {item.name} x{item.quantity} @ R{item.unit_price} — R
+                    {item.total_price} [{item.category}]
+                  </li>
+                ))}
+              </ul>
+            )}
+            <Button
+              type='primary'
+              style={{ marginTop: 10 }}
+              onClick={() => {
+                setReceiptModal(false)
+                setTimeout(() => {
+                  setEditingProduct(null)
+                  setAddMethod('manual')
+                  form.setFieldsValue({
+                    name: receiptData.items[0]?.name || '',
+                    type:
+                      receiptData.items[0]?.category === 'stock'
+                        ? 'product'
+                        : 'service',
+                    price: receiptData.items[0]?.unit_price || '',
+                    qty: receiptData.items[0]?.quantity || ''
+                  })
+                  if (isMobile) setDrawerVisible(true)
+                  else setModalVisible(true)
+                }, 300)
+              }}
+              block
+            >
+              Use & Edit These Details
+            </Button>
+          </div>
+        )}
       </Modal>
     </div>
   )
