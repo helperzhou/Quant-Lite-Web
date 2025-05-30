@@ -31,6 +31,7 @@ import {
   Timestamp
 } from 'firebase/firestore'
 import { useOutletContext } from 'react-router-dom'
+import type { CartItem, Customer, PaymentType, Product } from '../../types/type'
 
 const useBreakpoint = Grid.useBreakpoint
 const { Title, Text } = Typography
@@ -47,26 +48,30 @@ export default function POSScreen () {
     ''
 
   const screens = useBreakpoint()
-  const [customers, setCustomers] = useState([])
-  const [products, setProducts] = useState([])
+  const [customers, setCustomers] = useState<Customer[]>([])
+  const [products, setProducts] = useState<Product[]>([])
 
   // Selection
-  const [selectedCustomer, setSelectedCustomer] = useState(null)
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
+    null
+  )
+
   const [customerModal, setCustomerModal] = useState(false)
   const [customerSearch, setCustomerSearch] = useState('')
   const [newCustomerForm] = Form.useForm()
   const [showNewCustomer, setShowNewCustomer] = useState(false)
 
-  const [selectedProduct, setSelectedProduct] = useState(null)
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
+
   const [productModal, setProductModal] = useState(false)
   const [productSearch, setProductSearch] = useState('')
   const [productQty, setProductQty] = useState(1)
 
   // Cart
-  const [cart, setCart] = useState([])
+  const [cart, setCart] = useState<CartItem[]>([])
 
   // Payment
-  const [paymentType, setPaymentType] = useState('Cash')
+  const [paymentType, setPaymentType] = useState<PaymentType>('Cash')
   const [amountPaid, setAmountPaid] = useState(0)
   const [dueDate, setDueDate] = useState(null)
 
@@ -77,8 +82,12 @@ export default function POSScreen () {
         getDocs(query(collection(db, 'customers'), orderBy('name'))),
         getDocs(query(collection(db, 'products'), orderBy('name')))
       ])
-      setCustomers(cSnap.docs.map(doc => ({ ...doc.data(), id: doc.id })))
-      setProducts(pSnap.docs.map(doc => ({ ...doc.data(), id: doc.id })))
+      setCustomers(
+        cSnap.docs.map(doc => ({ ...doc.data(), id: doc.id } as Customer))
+      )
+      setProducts(
+        pSnap.docs.map(doc => ({ ...doc.data(), id: doc.id } as Product))
+      )
     }
     fetchData()
   }, [])

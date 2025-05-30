@@ -25,16 +25,17 @@ import { createUserWithEmailAndPassword } from 'firebase/auth'
 import { db, auth } from '../../../firebase'
 import { useMediaQuery } from 'react-responsive'
 import { useOutletContext } from 'react-router-dom'
+import type { Admin } from '../../../types/type'
 
 const AdminsPage = () => {
-    const { currentUser } = useOutletContext()
+  const { currentUser } = useOutletContext()
   const [saving, setSaving] = useState(false)
-  const [admins, setAdmins] = useState([])
+  const [admins, setAdmins] = useState<Admin[]>([])
   const [loading, setLoading] = useState(true)
   const [drawerVisible, setDrawerVisible] = useState(false)
   const [modalVisible, setModalVisible] = useState(false)
   const [form] = Form.useForm()
-  const [editingAdmin, setEditingAdmin] = useState(null)
+  const [editingAdmin, setEditingAdmin] = useState<Admin | null>(null)
   const isMobile = useMediaQuery({ maxWidth: 767 })
   const [search, setSearch] = useState('')
 
@@ -56,7 +57,7 @@ const AdminsPage = () => {
     return () => unsub()
   }, [])
 
-  const handleDelete = async id => {
+  const handleDelete = async (id: string) => {
     try {
       await deleteDoc(doc(db, 'users', id))
       message.success('Admin deleted')
@@ -65,7 +66,7 @@ const AdminsPage = () => {
     }
   }
 
-  const openForm = record => {
+  const openForm = (record: Admin | null) => {
     if (record) {
       setEditingAdmin(record)
       form.setFieldsValue(record)
@@ -80,7 +81,7 @@ const AdminsPage = () => {
     }
   }
 
-  const handleSave = async values => {
+  const handleSave = async (values: any) => {
     setSaving(true)
     console.log(editingAdmin ? 'Updating admin...' : 'Creating admin...')
     try {

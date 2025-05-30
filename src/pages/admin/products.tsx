@@ -28,14 +28,15 @@ import {
 import { db } from '../../firebase'
 import { useMediaQuery } from 'react-responsive'
 import ProductStatisticsDashboard from '../../components/ProductsDashboard'
+import type { Product } from '../../types/type'
 
 const ProductsPage = () => {
-  const [products, setProducts] = useState([])
+  const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [drawerVisible, setDrawerVisible] = useState(false)
   const [modalVisible, setModalVisible] = useState(false)
   const [form] = Form.useForm()
-  const [editingProduct, setEditingProduct] = useState(null)
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const isMobile = useMediaQuery({ maxWidth: 767 })
   const [search, setSearch] = useState('')
   const [tabKey, setTabKey] = useState('list')
@@ -62,7 +63,7 @@ const ProductsPage = () => {
     return () => unsub()
   }, [])
 
-  const handleDelete = async id => {
+  const handleDelete = async (id: string) => {
     try {
       await deleteDoc(doc(db, 'products', id))
       message.success('Product deleted')
@@ -71,7 +72,7 @@ const ProductsPage = () => {
     }
   }
 
-  const openForm = (record = null, prefill = null) => {
+  const openForm = (record: Product | null = null, prefill: any = null) => {
     form.resetFields()
     setEditingProduct(record)
     setFormType(prefill?.type || record?.type || 'product')
@@ -86,7 +87,7 @@ const ProductsPage = () => {
     else setModalVisible(true)
   }
 
-  const handleSave = async values => {
+  const handleSave = async (values: any) => {
     try {
       const data = {
         name: values.name,

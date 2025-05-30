@@ -34,22 +34,24 @@ import { db, auth } from '../../../firebase'
 import { useMediaQuery } from 'react-responsive'
 import dayjs from 'dayjs'
 import { useOutletContext } from 'react-router-dom'
+import type { Teller } from '../../../types/type'
 
 const TellersPage = () => {
   const { currentUser } = useOutletContext()
-  const [tellers, setTellers] = useState([])
+  const [tellers, setTellers] = useState<Teller[]>([])
   const [loading, setLoading] = useState(true)
   const [drawerVisible, setDrawerVisible] = useState(false)
   const [modalVisible, setModalVisible] = useState(false)
   const [form] = Form.useForm()
-  const [editingTeller, setEditingTeller] = useState(null)
+  const [editingTeller, setEditingTeller] = useState<Teller[]>([])
   const isMobile = useMediaQuery({ maxWidth: 767 })
   const [search, setSearch] = useState('')
   const [tabKey, setTabKey] = useState('list')
   const [selectedDate, setSelectedDate] = useState(dayjs())
-  const [cashIns, setCashIns] = useState([])
-  const [cashInExpectations, setCashInExpectations] = useState({})
-
+  const [cashIns, setCashIns] = useState<any[]>([])
+  const [cashInExpectations, setCashInExpectations] = useState<
+    Record<string, number>
+  >({})
   // Get available branches for Select
   const branches = currentUser?.branches || []
 
@@ -341,7 +343,7 @@ const TellersPage = () => {
                 {
                   title: 'Cash In',
                   key: 'cash',
-                  render: (_, teller) => {
+                  render: (_, teller: Teller) => {
                     // All this teller's cash-ins today
                     const cash = cashIns
                       .filter(
@@ -356,7 +358,7 @@ const TellersPage = () => {
                 {
                   title: 'Bank',
                   key: 'bank',
-                  render: (_, teller) => {
+                  render: (_, teller: Teller) => {
                     const bank = cashIns
                       .filter(
                         cash =>
@@ -370,7 +372,7 @@ const TellersPage = () => {
                 {
                   title: 'Credit',
                   key: 'credit',
-                  render: (_, teller) => {
+                  render: (_, teller: Teller) => {
                     const credit = cashIns
                       .filter(
                         cash =>
@@ -384,7 +386,7 @@ const TellersPage = () => {
                 {
                   title: 'Expected',
                   key: 'expected',
-                  render: (_, teller) => {
+                  render: (_, teller: Teller) => {
                     const expected = cashInExpectations[teller.branch] || 0
                     return `R${expected.toFixed(2)}`
                   }
@@ -392,7 +394,7 @@ const TellersPage = () => {
                 {
                   title: 'Status',
                   key: 'status',
-                  render: (_, teller) => {
+                  render: (_, teller: Teller) => {
                     const branchExpected =
                       cashInExpectations[teller.branch] || 0
                     const tellerCashIns = cashIns

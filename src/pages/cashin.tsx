@@ -11,7 +11,8 @@ import {
   message,
   Space,
   Grid,
-  Empty
+  Empty,
+  Table
 } from 'antd'
 import { ShopOutlined, DollarOutlined } from '@ant-design/icons'
 import { db } from '../firebase'
@@ -26,6 +27,7 @@ import {
   Timestamp
 } from 'firebase/firestore'
 import { useOutletContext } from 'react-router-dom'
+import type { Teller, BranchExpected } from '../types/type'
 
 const { Title, Text } = Typography
 const { useBreakpoint } = Grid
@@ -59,13 +61,19 @@ function getTodayRange () {
 export default function CashInScreen () {
   const { currentUser } = useOutletContext()
   const screens = useBreakpoint()
-  const [adminBranches, setAdminBranches] = useState([])
+  const [adminBranches, setAdminBranches] = useState<string[]>([])
   const [companyName, setCompanyName] = useState('')
-  const [tellers, setTellers] = useState([])
-  const [branchExpectedCash, setBranchExpectedCash] = useState({})
+  const [tellers, setTellers] = useState<Teller[]>([])
+  const [branchExpectedCash, setBranchExpectedCash] = useState<BranchExpected>(
+    {}
+  )
   const [cashInModalVisible, setCashInModalVisible] = useState(false)
-  const [selectedTeller, setSelectedTeller] = useState(null)
-  const [cashInForm, setCashInForm] = useState({
+  const [selectedTeller, setSelectedTeller] = useState<Teller | null>(null)
+  const [cashInForm, setCashInForm] = useState<{
+    cash: string
+    bank: string
+    credit: string
+  }>({
     cash: '',
     bank: '',
     credit: ''
