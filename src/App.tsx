@@ -1,7 +1,6 @@
 import { Routes, Route } from 'react-router-dom'
 import LandingPage from './pages/LandingPage'
 import Login from './pages/auth/Login'
-import BaseLayout from './layouts/BaseLayout'
 import Register from './pages/auth/registration'
 import Onboarding from './pages/auth/onboarding'
 import SystemLayout from './layouts/SystemLayout'
