@@ -342,12 +342,31 @@ export default function POSScreen () {
         {selectedProduct && (
           <Row gutter={6} align='middle' style={{ marginBottom: 10 }}>
             <Col>
+              <Button
+                size='small'
+                onClick={() => setProductQty(q => Math.max(1, q - 1))}
+              >
+                -
+              </Button>
+            </Col>
+            <Col>
               <InputNumber
                 min={1}
                 value={productQty}
                 onChange={setProductQty}
-                style={{ width: 70 }}
+                style={{ width: 60 }}
               />
+            </Col>
+            <Col>
+              <Button
+                size='small'
+                onClick={() => {
+                  const max = selectedProduct?.qty ?? Infinity
+                  setProductQty(q => Math.min(q + 1, max))
+                }}
+              >
+                +
+              </Button>
             </Col>
             <Col>
               <Button type='primary' onClick={addToCart}>
