@@ -77,25 +77,57 @@ const SystemLayout = () => {
   }, [])
 
   const handleLogout = () => {
-    console.log('Logging out...')
+    auth.signOut() // Recommended: sign the user out from Firebase
     navigate('/auth/login')
   }
 
-  const menu = (
-    <Menu>
-      <Menu.Item
-        key='edit'
-        icon={<EditOutlined />}
-        onClick={() => setAccountDrawer(true)}
-      >
-        Edit Account
-      </Menu.Item>
-      <Menu.Item key='logout' icon={<LogoutOutlined />} onClick={handleLogout}>
-        Logout
-      </Menu.Item>
-    </Menu>
-  )
+  // --- Menu items based on role ---
+  const adminMenuItems = [
+    { key: '/admin', icon: <HomeOutlined />, label: 'Home' },
+    {
+      key: 'users',
+      icon: <TeamOutlined />,
+      label: 'Users',
+      children: [
+        { key: '/admin/users/admins', label: 'Admins' },
+        { key: '/admin/users/tellers', label: 'Tellers' }
+      ]
+    },
+    {
+      key: '/admin/products',
+      icon: <AppstoreOutlined />,
+      label: 'Products'
+    },
+    {
+      key: '/admin/credits',
+      icon: <CreditCardOutlined />,
+      label: 'Credits'
+    },
+    { key: '/cashin', icon: <DollarOutlined />, label: 'Cashin' }
+  ]
 
+  // Teller gets only POS (change route to your POS) and Credits
+  const tellerMenuItems = [
+    {
+      key: '/tellers',
+      icon: <HomeOutlined />,
+      label: 'POS'
+    },
+    {
+      key: '/admin/credits',
+      icon: <CreditCardOutlined />,
+      label: 'Credits'
+    }
+  ]
+
+  const getMenuItems = () => {
+    if (!currentUser) return []
+    if (currentUser.userRole === 'teller') return tellerMenuItems
+    // Default to admin menu for everything else
+    return adminMenuItems
+  }
+
+  // --- Mobile menu generation ---
   const mobileMenu = (
     <Menu
       onClick={({ key }) => {
@@ -104,26 +136,44 @@ const SystemLayout = () => {
         navigate(key)
         setDrawerVisible(false)
       }}
-    >
-      <Menu.Item key='/admin' icon={<HomeOutlined />}>
-        Home
-      </Menu.Item>
-      <Menu.SubMenu key='users' icon={<TeamOutlined />} title='Users'>
-        <Menu.Item key='/admin/users/admins'>Admins</Menu.Item>
-        <Menu.Item key='/admin/users/tellers'>Tellers</Menu.Item>
-      </Menu.SubMenu>
-      <Menu.Item key='/admin/products' icon={<AppstoreOutlined />}>
-        Products
-      </Menu.Item>
-      <Menu.Item key='/admin/credits' icon={<CreditCardOutlined />}>
-        Credits
-      </Menu.Item>
-      <Menu.Item key='/cashin' icon={<DollarOutlined />}>
-        Cashin
-      </Menu.Item>
-    </Menu>
+      items={[
+        ...(currentUser?.userRole === 'teller'
+          ? [
+              { key: '/tellers', icon: <HomeOutlined />, label: 'POS' },
+              {
+                key: '/admin/credits',
+                icon: <CreditCardOutlined />,
+                label: 'Credits'
+              }
+            ]
+          : [
+              { key: '/admin', icon: <HomeOutlined />, label: 'Home' },
+              {
+                key: 'users',
+                icon: <TeamOutlined />,
+                label: 'Users',
+                children: [
+                  { key: '/admin/users/admins', label: 'Admins' },
+                  { key: '/admin/users/tellers', label: 'Tellers' }
+                ]
+              },
+              {
+                key: '/admin/products',
+                icon: <AppstoreOutlined />,
+                label: 'Products'
+              },
+              {
+                key: '/admin/credits',
+                icon: <CreditCardOutlined />,
+                label: 'Credits'
+              },
+              { key: '/cashin', icon: <DollarOutlined />, label: 'Cashin' }
+            ])
+      ]}
+    />
   )
 
+  // --- Render ---
   return (
     <Layout style={{ minHeight: '100vh', background: '#ffffff' }}>
       {!isMobile && (
@@ -146,29 +196,7 @@ const SystemLayout = () => {
             mode='inline'
             defaultSelectedKeys={[location.pathname]}
             onClick={({ key }) => navigate(key)}
-            items={[
-              { key: '/admin', icon: <HomeOutlined />, label: 'Home' },
-              {
-                key: 'users',
-                icon: <TeamOutlined />,
-                label: 'Users',
-                children: [
-                  { key: '/admin/users/admins', label: 'Admins' },
-                  { key: '/admin/users/tellers', label: 'Tellers' }
-                ]
-              },
-              {
-                key: '/admin/products',
-                icon: <AppstoreOutlined />,
-                label: 'Products'
-              },
-              {
-                key: '/admin/credits',
-                icon: <CreditCardOutlined />,
-                label: 'Credits'
-              },
-              { key: '/cashin', icon: <DollarOutlined />, label: 'Cashin' }
-            ]}
+            items={getMenuItems()}
           />
         </Sider>
       )}
@@ -199,7 +227,27 @@ const SystemLayout = () => {
           </div>
 
           <div className='flex justify-end flex-1'>
-            <Dropdown overlay={menu} placement='bottomRight'>
+            <Dropdown
+              overlay={
+                <Menu>
+                  <Menu.Item
+                    key='edit'
+                    icon={<EditOutlined />}
+                    onClick={() => setAccountDrawer(true)}
+                  >
+                    Edit Account
+                  </Menu.Item>
+                  <Menu.Item
+                    key='logout'
+                    icon={<LogoutOutlined />}
+                    onClick={handleLogout}
+                  >
+                    Logout
+                  </Menu.Item>
+                </Menu>
+              }
+              placement='bottomRight'
+            >
               <Avatar className='cursor-pointer' icon={<UserOutlined />} />
             </Dropdown>
           </div>
