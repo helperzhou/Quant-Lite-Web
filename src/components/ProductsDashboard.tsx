@@ -182,27 +182,7 @@ const ProductStatisticsDashboard = ({ products }: Props) => {
         options={miniBarOptions}
         containerProps={{ style: { width: '100%' } }}
       />
-      <Divider style={{ margin: '18px 0' }}>All Products</Divider>
-      <List
-        size='small'
-        bordered
-        dataSource={products}
-        renderItem={(item: Product) => (
-          <List.Item>
-            <span style={{ marginRight: 10 }}>{productIcon(item)}</span>
-            <span style={{ fontWeight: 500 }}>{item.name}</span>
-            <span style={{ marginLeft: 'auto' }}>
-              {asDisplayValue(item)} @ R{asDisplayPrice(item)}
-            </span>
-          </List.Item>
-        )}
-        style={{
-          maxHeight: 250,
-          overflow: 'auto',
-          background: '#fff',
-          borderRadius: 8
-        }}
-      />
+
       <Divider style={{ margin: '18px 0' }}>Monthly Overview</Divider>
       <HighchartsReact
         highcharts={Highcharts}

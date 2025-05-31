@@ -35,7 +35,15 @@ export default function Onboarding () {
   const handleFinish = async (values: any) => {
     if (!uid) return
 
-    const { companyName, phone, branch1, branch2, workers, turnover } = values
+    // Trim string fields
+    const companyName = values.companyName.trim()
+    const name = values.name.trim()
+    const branch1 = values.branch1.trim()
+    const branch2 = values.branch2 ? values.branch2.trim() : null
+    const workers = values.workers
+    const turnover = values.turnover
+
+    // Only include non-empty branches
     const branches = [branch1, branch2].filter(Boolean)
 
     setLoading(true)
@@ -43,7 +51,7 @@ export default function Onboarding () {
     try {
       await updateDoc(doc(db, 'users', uid), {
         companyName,
-        phone,
+        name,
         branches,
         workers,
         turnover,
@@ -77,9 +85,9 @@ export default function Onboarding () {
               <Input placeholder='Quantilytix' />
             </Form.Item>
             <Form.Item
-              name='phone'
-              label='Phone Number'
-              rules={[{ required: true, message: 'Phone is required' }]}
+              name='name'
+              label='Full Name'
+              rules={[{ required: true, message: 'Full name is required' }]}
             >
               <Input placeholder='+27...' />
             </Form.Item>

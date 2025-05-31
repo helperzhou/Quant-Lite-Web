@@ -8,7 +8,9 @@ import {
   Tabs,
   Modal,
   Badge,
-  Spin
+  Spin,
+  Table,
+  Grid
 } from 'antd'
 import {
   UserOutlined,
@@ -32,8 +34,20 @@ import dayjs from 'dayjs'
 
 const { Title, Text } = Typography
 const { TabPane } = Tabs
+const { useBreakpoint } = Grid
+
+// CSS for hiding scrollbar
+const noScrollbarStyle = {
+  maxHeight: screens => (screens.xs ? 340 : 440),
+  overflowY: 'auto',
+  marginBottom: 8,
+  paddingRight: 4,
+  scrollbarWidth: 'none', // Firefox
+  msOverflowStyle: 'none' // IE 10+
+}
 
 export default function AdminDashboard () {
+  const screens = useBreakpoint()
   const [branchNames, setBranchNames] = useState<string[]>([])
   const [tellers, setTellers] = useState<any[]>([])
   const [credits, setCredits] = useState<any[]>([])
@@ -41,14 +55,17 @@ export default function AdminDashboard () {
     {}
   )
   const [salesList, setSalesList] = useState<any[]>([])
+  const [salesByTeller, setSalesByTeller] = useState<{
+    [tellerId: string]: any[]
+  }>({})
   const [productCount, setProductCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [modalVisible, setModalVisible] = useState(false)
-  const [selectedItem, setSelectedItem] = useState<any>(null)
+  const [selectedTeller, setSelectedTeller] = useState<any>(null)
+  const [expandedSaleRowKeys, setExpandedSaleRowKeys] = useState<string[]>([])
 
   useEffect(() => {
-    setLoading(true) // Ensure loading on mount
-
+    setLoading(true)
     const unsub = onAuthStateChanged(auth, async user => {
       if (!user?.uid) {
         setLoading(false)
@@ -58,7 +75,6 @@ export default function AdminDashboard () {
         const userDoc = await getDoc(doc(db, 'users', user.uid))
         const branches = userDoc.data()?.branches || []
         setBranchNames(branches)
-
         const companyName = userDoc.data()?.companyName
         const [tellerSnap, creditSnap, productSnap] = await Promise.all([
           getDocs(
@@ -81,7 +97,6 @@ export default function AdminDashboard () {
             )
           )
         ])
-
         setTellers(tellerSnap.docs.map(d => ({ id: d.id, ...d.data() })))
         setCredits(creditSnap.docs.map(d => ({ id: d.id, ...d.data() })))
         setProductCount(productSnap.size)
@@ -111,24 +126,80 @@ export default function AdminDashboard () {
         })
         setSalesTotals(branchSales)
         setSalesList(todaySalesArr)
+
+        // Group sales by tellerId
+        const grouped: { [tellerId: string]: any[] } = {}
+        todaySalesArr.forEach(sale => {
+          const tellerKey = sale.tellerId || 'Unknown'
+          if (!grouped[tellerKey]) grouped[tellerKey] = []
+          grouped[tellerKey].push(sale)
+        })
+        setSalesByTeller(grouped)
       } catch (err) {
-        // Log or show error as needed
         console.log(err)
       } finally {
         setLoading(false)
       }
     })
-    // Proper cleanup on unmount
     return () => unsub()
   }, [])
 
-  const openModal = (item: any) => {
-    setSelectedItem(item)
-    setModalVisible(true)
-  }
+  // Table columns for breakdown of teller's sales in modal
+  const tellerSalesColumns = [
+    {
+      title: 'Time',
+      dataIndex: 'createdAt',
+      key: 'createdAt',
+      render: (val: any) =>
+        val && val.seconds ? dayjs.unix(val.seconds).format('HH:mm') : ''
+    },
+    {
+      title: 'Branch',
+      dataIndex: 'branch',
+      key: 'branch'
+    },
+    {
+      title: 'Amount',
+      dataIndex: 'total',
+      key: 'total',
+      render: (amt: number) => `R${amt || 0}`
+    },
+    {
+      title: 'Payment',
+      dataIndex: 'paymentType',
+      key: 'paymentType'
+    }
+  ]
+
+  // Expand sales row to show products
+  const renderSaleExpand = (sale: any) => (
+    <Table
+      columns={[
+        { title: 'Product', dataIndex: 'name', key: 'name' },
+        { title: 'Qty', dataIndex: 'quantity', key: 'quantity' },
+        {
+          title: 'Price',
+          dataIndex: 'sellingPrice',
+          key: 'sellingPrice',
+          render: (price: number) => `R${price}`
+        },
+        {
+          title: 'Subtotal',
+          dataIndex: 'subtotal',
+          key: 'subtotal',
+          render: (_: any, item: any) =>
+            `R${item.subtotal || item.sellingPrice * item.quantity}`
+        }
+      ]}
+      dataSource={Array.isArray(sale.cart) ? sale.cart : []}
+      size='small'
+      pagination={false}
+      rowKey={r => r.id || r.name + (r.sellingPrice || '')}
+    />
+  )
 
   return (
-    <div className='p-4'>
+    <div className='p-4' style={{ maxWidth: 900, margin: '0 auto' }}>
       <Row gutter={[16, 16]}>
         <Col span={24}>
           <Card>
@@ -199,36 +270,61 @@ export default function AdminDashboard () {
         >
           {loading ? (
             <Spin />
-          ) : salesList.length === 0 ? (
+          ) : Object.keys(salesByTeller).length === 0 ? (
             <div style={{ textAlign: 'center', color: '#aaa', marginTop: 24 }}>
               No sales today.
             </div>
           ) : (
-            salesList.map(sale => (
-              <Card
-                key={sale.id}
-                className='mb-4 hover:shadow-md cursor-pointer'
-                onClick={() => openModal({ ...sale, type: 'sale' })}
-              >
-                <Card.Meta
-                  avatar={
-                    <Avatar
-                      icon={<UserOutlined />}
-                      style={{ backgroundColor: '#4F8EF7' }}
+            <div
+              className='no-scrollbar'
+              style={{
+                ...noScrollbarStyle,
+                maxHeight: screens.xs ? 340 : 440,
+                overflowY: 'auto'
+              }}
+            >
+              {/* List each teller ONCE */}
+              {Object.entries(salesByTeller).map(([tellerId, tellerSales]) => {
+                const tellerInfo = tellers.find(t => t.id === tellerId) || {}
+                const name =
+                  tellerInfo.name ||
+                  tellerSales[0]?.tellerName ||
+                  tellerId ||
+                  'Teller'
+                const branch = tellerInfo.branch || tellerSales[0]?.branch || ''
+                const avatarColor = '#4F8EF7'
+                return (
+                  <Card
+                    key={tellerId}
+                    className='mb-4 hover:shadow-md cursor-pointer'
+                    onClick={() => {
+                      setSelectedTeller({
+                        tellerId,
+                        name,
+                        branch,
+                        sales: tellerSales
+                      })
+                      setModalVisible(true)
+                      setExpandedSaleRowKeys([]) // Reset any expanded rows
+                    }}
+                  >
+                    <Card.Meta
+                      avatar={
+                        <Avatar
+                          icon={<UserOutlined />}
+                          style={{ backgroundColor: avatarColor }}
+                        />
+                      }
+                      title={name}
+                      description={`Branch: ${branch} | Sales: R${tellerSales.reduce(
+                        (sum, s) => sum + (s.total || 0),
+                        0
+                      )} | Count: ${tellerSales.length}`}
                     />
-                  }
-                  title={sale.tellerName || sale.tellerId || 'Sale'}
-                  description={
-                    `Branch: ${sale.branch} | R${sale.total || 0}` +
-                    (sale.createdAt && sale.createdAt.seconds
-                      ? ` | ${dayjs
-                          .unix(sale.createdAt.seconds)
-                          .format('YYYY-MM-DD HH:mm')}`
-                      : '')
-                  }
-                />
-              </Card>
-            ))
+                  </Card>
+                )
+              })}
+            </div>
           )}
         </TabPane>
 
@@ -248,36 +344,50 @@ export default function AdminDashboard () {
               No credits today.
             </div>
           ) : (
-            credits.map(credit => (
-              <Card
-                key={credit.id}
-                className='mb-4 hover:shadow-md cursor-pointer'
-                onClick={() => openModal({ ...credit, type: 'credit' })}
-              >
-                <Card.Meta
-                  avatar={
-                    <Avatar
-                      icon={<ExclamationCircleOutlined />}
-                      style={{
-                        backgroundColor:
-                          credit.status === 'Overdue' ? '#D32F2F' : '#FFA726'
-                      }}
-                    />
-                  }
-                  title={credit.name || credit.customer}
-                  description={
-                    `R${credit.amountDue || credit.amount} • Due ` +
-                    (credit.dueDate && credit.dueDate.seconds
-                      ? dayjs.unix(credit.dueDate.seconds).format('YYYY-MM-DD')
-                      : credit.dueDate)
-                  }
-                />
-                <Badge.Ribbon
-                  text={credit.status || ''}
-                  color={credit.status === 'Overdue' ? 'red' : 'orange'}
-                ></Badge.Ribbon>
-              </Card>
-            ))
+            <div
+              className='no-scrollbar'
+              style={{
+                ...noScrollbarStyle,
+                maxHeight: screens.xs ? 340 : 440,
+                overflowY: 'auto'
+              }}
+            >
+              {credits.map(credit => (
+                <Card
+                  key={credit.id}
+                  className='mb-4 hover:shadow-md cursor-pointer'
+                  onClick={() => {
+                    setSelectedTeller(null)
+                    setModalVisible(true)
+                  }}
+                >
+                  <Card.Meta
+                    avatar={
+                      <Avatar
+                        icon={<ExclamationCircleOutlined />}
+                        style={{
+                          backgroundColor:
+                            credit.status === 'Overdue' ? '#D32F2F' : '#FFA726'
+                        }}
+                      />
+                    }
+                    title={credit.name || credit.customer}
+                    description={
+                      `R${credit.amountDue || credit.amount} • Due ` +
+                      (credit.dueDate && credit.dueDate.seconds
+                        ? dayjs
+                            .unix(credit.dueDate.seconds)
+                            .format('YYYY-MM-DD')
+                        : credit.dueDate)
+                    }
+                  />
+                  <Badge.Ribbon
+                    text={credit.status || ''}
+                    color={credit.status === 'Overdue' ? 'red' : 'orange'}
+                  ></Badge.Ribbon>
+                </Card>
+              ))}
+            </div>
           )}
         </TabPane>
       </Tabs>
@@ -285,49 +395,67 @@ export default function AdminDashboard () {
       {/* Details Modal */}
       <Modal
         open={modalVisible}
-        onCancel={() => setModalVisible(false)}
+        onCancel={() => {
+          setModalVisible(false)
+          setSelectedTeller(null)
+          setExpandedSaleRowKeys([])
+        }}
         footer={null}
         centered
+        width={screens && screens.xs ? 350 : 650}
       >
-        {selectedItem && (
+        {/* Teller sales details */}
+        {selectedTeller && (
           <div className='text-center'>
             <Avatar
               size={64}
-              icon={
-                selectedItem.type === 'sale' ? (
-                  <UserOutlined />
-                ) : (
-                  <ExclamationCircleOutlined />
-                )
-              }
+              icon={<UserOutlined />}
               style={{
-                backgroundColor:
-                  selectedItem.type === 'sale' ? '#4F8EF7' : '#D32F2F'
+                backgroundColor: '#4F8EF7'
               }}
             />
             <Title level={4} className='mt-3'>
-              {selectedItem.tellerName ||
-                selectedItem.name ||
-                selectedItem.customer}
+              {selectedTeller.name}
             </Title>
             <Text>
-              {selectedItem.type === 'sale'
-                ? `Branch: ${
-                    selectedItem.branch || selectedItem.shop
-                  } | Amount: R${selectedItem.total || 0}`
-                : `Amount: R${
-                    selectedItem.amountDue || selectedItem.amount
-                  } | Due: ${
-                    selectedItem.dueDate && selectedItem.dueDate.seconds
-                      ? dayjs
-                          .unix(selectedItem.dueDate.seconds)
-                          .format('YYYY-MM-DD')
-                      : selectedItem.dueDate
-                  }`}
+              Branch: {selectedTeller.branch}
+              <br />
+              Total Sales: R
+              {selectedTeller.sales.reduce((sum, s) => sum + (s.total || 0), 0)}
+              <br />
+              Number of Sales: {selectedTeller.sales.length}
             </Text>
+            <div style={{ marginTop: 24 }}>
+              <Title level={5} style={{ textAlign: 'left' }}>
+                Sales Breakdown
+              </Title>
+              <Table
+                columns={tellerSalesColumns}
+                dataSource={selectedTeller.sales}
+                size='small'
+                pagination={screens.md ? { pageSize: 7 } : false}
+                rowKey={r => r.id}
+                expandable={{
+                  expandedRowRender: renderSaleExpand,
+                  rowExpandable: record =>
+                    Array.isArray(record.cart) && record.cart.length > 0,
+                  expandedRowKeys: expandedSaleRowKeys,
+                  onExpand: (expanded, record) => {
+                    setExpandedSaleRowKeys(expanded ? [record.id] : [])
+                  }
+                }}
+              />
+            </div>
           </div>
         )}
       </Modal>
+      {/* Style for hiding scrollbars */}
+      <style>
+        {`
+          .no-scrollbar::-webkit-scrollbar { display: none; }
+          .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+        `}
+      </style>
     </div>
   )
 }

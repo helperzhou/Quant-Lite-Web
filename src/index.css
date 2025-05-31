@@ -23,7 +23,22 @@ html, body, #root {
     z-index: 0;
   }
 
+  /* body {
+    overflow: hidden !important;
+  } */
 
+  .no-scrollbar {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE 10+ */
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none; /* Chrome/Safari/Webkit */
+  }
+
+
+  .ant-message {
+    z-index: 99999 !important;
+  }
 
 a {
   font-weight: 500;

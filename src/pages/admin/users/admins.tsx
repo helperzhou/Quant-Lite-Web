@@ -121,7 +121,8 @@ const AdminsPage = () => {
           branches: currentUser.branches || [],
           beneficiaryName: currentUser.beneficiaryName || '',
           workers: currentUser.workers || 0,
-          monthlyTurnover: currentUser.monthlyTurnover || 0
+          monthlyTurnover: currentUser.monthlyTurnover || 0,
+          onboarded: true
         })
         messageApi.success(
           `Admin created with temp password: ${values.password}`

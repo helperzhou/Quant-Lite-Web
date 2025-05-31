@@ -68,6 +68,16 @@ export default function CashInScreen () {
   const [branchExpectedCash, setBranchExpectedCash] = useState<BranchExpected>(
     {}
   )
+  const [tellerExpectedCash, setTellerExpectedCash] = useState<
+    Record<string, number>
+  >({})
+  const [tellerBankExpected, setTellerBankExpected] = useState<
+    Record<string, number>
+  >({})
+  const [tellerCreditExpected, setTellerCreditExpected] = useState<
+    Record<string, number>
+  >({})
+
   const [cashInModalVisible, setCashInModalVisible] = useState(false)
   const [selectedTeller, setSelectedTeller] = useState<Teller | null>(null)
   const [cashInForm, setCashInForm] = useState<{
@@ -82,6 +92,14 @@ export default function CashInScreen () {
   const [branchSearch, setBranchSearch] = useState('')
   const [tellerSearch, setTellerSearch] = useState('')
 
+  const hasTellerSalesToday = (tellerId: string) => {
+    return (
+      (tellerExpectedCash[tellerId] || 0) > 0 ||
+      (tellerBankExpected[tellerId] || 0) > 0 ||
+      (tellerCreditExpected[tellerId] || 0) > 0
+    )
+  }
+
   // Fetch user info, branches, tellers on mount
   useEffect(() => {
     async function fetchData () {
@@ -94,19 +112,25 @@ export default function CashInScreen () {
       setAdminBranches(branches)
       setCompanyName(userData?.companyName || '')
 
+      console.log('Current User:', currentUser)
+      console.log('User data from Firestore:', userData)
+      console.log('Branches for admin:', branches)
+      console.log('Company name:', userData?.companyName)
+
       // 2. Tellers for this company
       const tellersSnap = await getDocs(
         query(
           collection(db, 'users'),
           where('companyName', '==', userData?.companyName),
-          where('userRole', '==', 'teller') // only get tellers
+          where('userRole', '==', 'teller')
         )
       )
       const tellersFiltered = tellersSnap.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      }))
+      })) as Teller[]
       setTellers(tellersFiltered)
+      console.log('Tellers loaded:', tellersFiltered)
     }
     fetchData()
   }, [currentUser])
@@ -116,7 +140,7 @@ export default function CashInScreen () {
     async function fetchBranchExpected () {
       if (!adminBranches.length) return
       const { start, end } = getTodayRange()
-      const result = {}
+      const result: BranchExpected = {}
 
       // For each branch, sum cash sales for today
       for (const branch of adminBranches) {
@@ -133,11 +157,90 @@ export default function CashInScreen () {
           if (sale.paymentType === 'Cash') cash += sale.total
         })
         result[branch] = cash
+        console.log(`Branch: ${branch} | Cash sales sum for today: R${cash}`)
       }
       setBranchExpectedCash(result)
     }
     fetchBranchExpected()
   }, [adminBranches])
+
+  // Fetch expected cash-in per teller for today
+  useEffect(() => {
+    async function fetchTellerCashIn () {
+      if (!tellers.length) return
+      const { start, end } = getTodayRange()
+      const expected: Record<string, number> = {}
+
+      // For each teller, sum cash sales for today
+      for (const teller of tellers) {
+        const q = query(
+          collection(db, 'sales'),
+          where('tellerId', '==', teller.id),
+          where('createdAt', '>=', start),
+          where('createdAt', '<=', end),
+          where('paymentType', '==', 'Cash')
+        )
+        const snap = await getDocs(q)
+        let sum = 0
+        snap.forEach(doc => {
+          sum += doc.data().total || 0
+        })
+        expected[teller.id] = sum
+        console.log(`Teller: ${teller.name} | Cash sales today: R${sum}`)
+      }
+      setTellerExpectedCash(expected)
+    }
+    fetchTellerCashIn()
+  }, [tellers])
+
+  useEffect(() => {
+    async function fetchTellerBankAndCredit () {
+      if (!tellers.length) return
+      const { start, end } = getTodayRange()
+      const bank: Record<string, number> = {}
+      const credit: Record<string, number> = {}
+
+      for (const teller of tellers) {
+        // BANK
+        const qBank = query(
+          collection(db, 'sales'),
+          where('tellerId', '==', teller.id),
+          where('createdAt', '>=', start),
+          where('createdAt', '<=', end),
+          where('paymentType', '==', 'Bank')
+        )
+        const snapBank = await getDocs(qBank)
+        let sumBank = 0
+        snapBank.forEach(doc => {
+          sumBank += doc.data().total || 0
+        })
+        bank[teller.id] = sumBank
+
+        // CREDIT
+        const qCredit = query(
+          collection(db, 'sales'),
+          where('tellerId', '==', teller.id),
+          where('createdAt', '>=', start),
+          where('createdAt', '<=', end),
+          where('paymentType', '==', 'Credit')
+        )
+        const snapCredit = await getDocs(qCredit)
+        let sumCredit = 0
+        snapCredit.forEach(doc => {
+          sumCredit += doc.data().total || 0
+        })
+        credit[teller.id] = sumCredit
+
+        // Debug logs
+        console.log(
+          `Teller: ${teller.name} | Bank sales: R${sumBank} | Credit sales: R${sumCredit}`
+        )
+      }
+      setTellerBankExpected(bank)
+      setTellerCreditExpected(credit)
+    }
+    fetchTellerBankAndCredit()
+  }, [tellers])
 
   // Branch summary array
   const branchData = adminBranches.map(branch => ({
@@ -157,7 +260,8 @@ export default function CashInScreen () {
       (!tellerSearch ||
         t.name.toLowerCase().includes(tellerSearch.toLowerCase()) ||
         t.branch.toLowerCase().includes(tellerSearch.toLowerCase())) &&
-      adminBranches.includes(t.branch)
+      adminBranches.includes(t.branch) &&
+      hasTellerSalesToday(t.id) // <- Only those with sales today
   )
 
   // Open cash-in modal for teller
@@ -170,26 +274,33 @@ export default function CashInScreen () {
   // Save cash-in to cashIns collection
   const handleSubmit = async () => {
     try {
-      const cash = parseFloat(cashInForm.cash) || 0
+      if (!selectedTeller) return
+      const expectedCash = tellerExpectedCash[selectedTeller.id] || 0
+      const actualCash = parseFloat(cashInForm.cash) || 0
       const bank = parseFloat(cashInForm.bank) || 0
       const credit = parseFloat(cashInForm.credit) || 0
-      if (cash <= 0 && bank <= 0 && credit <= 0) {
-        messageApi.error('Please enter at least one positive amount')
-        return
-      }
+
+      let status: 'underpaid' | 'overpaid' | 'exact' = 'exact'
+      if (actualCash < expectedCash) status = 'underpaid'
+      else if (actualCash > expectedCash) status = 'overpaid'
+
       await addDoc(collection(db, 'cashIns'), {
         branch: selectedTeller.branch,
         tellerId: selectedTeller.id,
         tellerName: selectedTeller.name,
-        cash,
+        cash: actualCash,
         bank,
         credit,
+        expectedCashIn: expectedCash,
+        status,
         type: 'cash',
         date: Timestamp.now(),
         companyName,
         adminId: currentUser.uid
       })
-      messageApi.success(`Cash in recorded for ${selectedTeller.name}`)
+      messageApi.success(
+        `Cash in recorded for ${selectedTeller.name} (${status})`
+      )
       setCashInModalVisible(false)
       setSelectedTeller(null)
       setCashInForm({ cash: '', bank: '', credit: '' })
@@ -217,7 +328,7 @@ export default function CashInScreen () {
             </Col>
           ) : (
             filteredBranchData.map(branch => (
-              <Col xs={24} sm={12} md={8} key={branch.branch}>
+              <Col xs={12} sm={12} md={12} key={branch.branch}>
                 <Card
                   size='small'
                   style={{ borderRadius: 10, minHeight: 120 }}
@@ -256,78 +367,98 @@ export default function CashInScreen () {
             />
           </Col>
         </Row>
-        {screens.md ? (
-          <Table
-            dataSource={tellerData}
-            rowKey='id'
-            pagination={{ pageSize: 8 }}
-            columns={[
-              {
-                title: 'Teller',
-                dataIndex: 'name',
-                key: 'name',
-                render: (name, record) => (
-                  <span>
-                    {name} <Tag>{record.branch}</Tag>
-                  </span>
-                )
-              },
-              {
-                title: 'Action',
-                key: 'action',
-                align: 'center',
-                render: (_, rec) => (
-                  <Button type='primary' onClick={() => openTellerModal(rec)}>
-                    Record Cash-In
-                  </Button>
-                )
-              }
-            ]}
-          />
-        ) : (
-          <Row gutter={[10, 12]}>
-            {tellerData.length === 0 ? (
-              <Col span={24}>
-                <Empty description='No tellers found' />
-              </Col>
-            ) : (
-              tellerData.map(item => (
-                <Col xs={24} key={item.id}>
-                  <Card
-                    style={{
-                      borderRadius: 10,
-                      background: '#fff',
-                      marginBottom: 12
-                    }}
-                    bodyStyle={{ padding: 14 }}
-                    onClick={() => openTellerModal(item)}
-                    hoverable
-                  >
-                    <Row align='middle' justify='space-between'>
-                      <Col>
-                        <Text strong>{item.name}</Text>
-                        <div style={{ color: '#888' }}>
-                          Branch: {item.branch}
-                        </div>
-                      </Col>
-                    </Row>
-                    <Button
-                      type='primary'
-                      block
-                      style={{ marginTop: 8 }}
-                      onClick={e => {
-                        e.stopPropagation()
-                        openTellerModal(item)
-                      }}
-                    >
+        <div
+          style={{
+            maxHeight: 430, // or whatever fits your viewport nicely!
+            overflowY: 'auto',
+            paddingRight: 8,
+            marginBottom: 24
+          }}
+        >
+          {screens.md ? (
+            <Table
+              dataSource={tellerData}
+              rowKey='id'
+              pagination={{ pageSize: 8 }}
+              columns={[
+                {
+                  title: 'Teller',
+                  dataIndex: 'name',
+                  key: 'name',
+                  render: (name, record) => (
+                    <span>
+                      {name} <Tag>{record.branch}</Tag>
+                    </span>
+                  )
+                },
+                {
+                  title: 'Expected Cash In',
+                  key: 'expected',
+                  render: (_, rec) => (
+                    <span>R{tellerExpectedCash[rec.id] || 0}</span>
+                  )
+                },
+                {
+                  title: 'Action',
+                  key: 'action',
+                  align: 'center',
+                  render: (_, rec) => (
+                    <Button type='primary' onClick={() => openTellerModal(rec)}>
                       Record Cash-In
                     </Button>
-                  </Card>
+                  )
+                }
+              ]}
+            />
+          ) : (
+            <Row gutter={[10, 12]}>
+              {tellerData.length === 0 ? (
+                <Col span={24}>
+                  <Empty description='No tellers found' />
                 </Col>
-              ))
-            )}
-          </Row>
-        )}
+              ) : (
+                tellerData.map(item => (
+                  <Col xs={24} key={item.id}>
+                    <Card
+                      style={{
+                        borderRadius: 10,
+                        background: '#fff',
+                        marginBottom: 12
+                      }}
+                      bodyStyle={{ padding: 14 }}
+                      onClick={() => openTellerModal(item)}
+                      hoverable
+                    >
+                      <Row align='middle' justify='space-between'>
+                        <Col>
+                          <Text strong>{item.name}</Text>
+                          <div style={{ color: '#888' }}>
+                            Branch: {item.branch}
+                          </div>
+                          <div>
+                            <b>Expected Cash In:</b> R
+                            {tellerExpectedCash[item.id] || 0}
+                          </div>
+                        </Col>
+                      </Row>
+                      <Button
+                        type='primary'
+                        block
+                        style={{ marginTop: 8 }}
+                        onClick={e => {
+                          e.stopPropagation()
+                          openTellerModal(item)
+                        }}
+                      >
+                        Record Cash-In
+                      </Button>
+                    </Card>
+                  </Col>
+                ))
+              )}
+            </Row>
+          )}
+        </div>
 
         {/* --- Cash-In Modal for Teller --- */}
         <Modal
@@ -344,9 +475,22 @@ export default function CashInScreen () {
               <Text strong>Branch: {selectedTeller.branch}</Text>
               <br />
               <Text>
-                Expected for branch:{' '}
-                <b>R{branchExpectedCash[selectedTeller.branch] || 0}</b>
+                <b>
+                  Expected Cash In: R
+                  {tellerExpectedCash[selectedTeller.id] || 0}
+                </b>
               </Text>
+              <div style={{ margin: '10px 0 6px 0' }}>
+                <Text>
+                  <span style={{ color: '#1677ff' }}>Bank Sales:</span>{' '}
+                  <b>R{tellerBankExpected[selectedTeller.id] || 0}</b>
+                </Text>
+                <br />
+                <Text>
+                  <span style={{ color: '#faad14' }}>Credit Sales:</span>{' '}
+                  <b>R{tellerCreditExpected[selectedTeller.id] || 0}</b>
+                </Text>
+              </div>
               <Input
                 type='number'
                 min={0}
@@ -355,27 +499,7 @@ export default function CashInScreen () {
                 onChange={e =>
                   setCashInForm({ ...cashInForm, cash: e.target.value })
                 }
-                style={{ margin: '10px 0 6px 0' }}
-              />
-              <Input
-                type='number'
-                min={0}
-                placeholder='Bank Amount'
-                value={cashInForm.bank}
-                onChange={e =>
-                  setCashInForm({ ...cashInForm, bank: e.target.value })
-                }
-                style={{ margin: '6px 0' }}
-              />
-              <Input
-                type='number'
-                min={0}
-                placeholder='Credit Amount'
-                value={cashInForm.credit}
-                onChange={e =>
-                  setCashInForm({ ...cashInForm, credit: e.target.value })
-                }
-                style={{ margin: '6px 0 18px 0' }}
+                style={{ margin: '10px 0 18px 0' }}
               />
               <Row gutter={8}>
                 <Col span={12}>
@@ -388,9 +512,7 @@ export default function CashInScreen () {
                     type='primary'
                     block
                     onClick={handleSubmit}
-                    disabled={
-                      !cashInForm.cash && !cashInForm.bank && !cashInForm.credit
-                    }
+                    disabled={!cashInForm.cash}
                   >
                     Submit
                   </Button>

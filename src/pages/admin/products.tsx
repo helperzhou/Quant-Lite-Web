@@ -423,6 +423,10 @@ const ProductsPage = () => {
                   >
                     <p>Type: {product.type}</p>
                     <p>Price: R{product.price || product.unitPrice}</p>
+                    <p>
+                      <strong>Current Quantity: {product.qty ?? 0}</strong>
+                      {product.unit ? ` ${product.unit}` : ''}
+                    </p>
                   </Card>
                 ))}
               </Space>
@@ -431,6 +435,13 @@ const ProductsPage = () => {
                 columns={[
                   { title: 'Name', dataIndex: 'name', key: 'name' },
                   { title: 'Type', dataIndex: 'type', key: 'type' },
+                  {
+                    title: 'Quantity',
+                    dataIndex: 'qty',
+                    key: 'qty',
+                    render: (qty, rec) =>
+                      rec.unit ? `${qty ?? 0} ${rec.unit}` : qty ?? 0
+                  },
                   {
                     title: 'Price',
                     dataIndex: 'price',

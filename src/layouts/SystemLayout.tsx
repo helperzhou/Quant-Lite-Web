@@ -17,7 +17,8 @@ import {
   DollarOutlined,
   CreditCardOutlined,
   EditOutlined,
-  MoneyCollectOutlined
+  MoneyCollectOutlined,
+  FileExclamationOutlined
 } from '@ant-design/icons'
 import { Outlet, useLocation, useNavigate, Link } from 'react-router-dom'
 import { useEffect, useState } from 'react'
@@ -78,7 +79,7 @@ const SystemLayout = () => {
   }, [])
 
   const handleLogout = () => {
-    auth.signOut() // Recommended: sign the user out from Firebase
+    auth.signOut()
     navigate('/auth/login')
   }
 
@@ -105,10 +106,14 @@ const SystemLayout = () => {
       icon: <CreditCardOutlined />,
       label: 'Credits'
     },
+    {
+      key: '/admin/expenses',
+      icon: <FileExclamationOutlined />,
+      label: 'Expenses'
+    }, // <--- Added
     { key: '/cashin', icon: <DollarOutlined />, label: 'Cashin' }
   ]
 
-  // Teller gets only POS (change route to your POS) and Credits
   const tellerMenuItems = [
     {
       key: '/tellers',
@@ -125,18 +130,22 @@ const SystemLayout = () => {
   const getMenuItems = () => {
     if (!currentUser) return []
     if (currentUser.userRole === 'teller') return tellerMenuItems
-    // Default to admin menu for everything else
     return adminMenuItems
   }
 
   // --- Mobile menu generation ---
+  // Use expandIcon for nested users
   const mobileMenu = (
     <Menu
+      mode='inline'
       onClick={({ key }) => {
         if (key === 'logout') return handleLogout()
         if (key === 'edit') return setAccountDrawer(true)
-        navigate(key)
-        setDrawerVisible(false)
+        // Don't navigate for menu groups/parents
+        if (key !== 'users') {
+          navigate(key)
+          setDrawerVisible(false)
+        }
       }}
       items={[
         ...(currentUser?.userRole === 'teller'
@@ -170,9 +179,20 @@ const SystemLayout = () => {
                 icon: <CreditCardOutlined />,
                 label: 'Credits'
               },
+              {
+                key: '/admin/expenses',
+                icon: <FileExclamationOutlined />,
+                label: 'Expenses'
+              }, // <--- Added
               { key: '/cashin', icon: <DollarOutlined />, label: 'Cashin' }
             ])
       ]}
+      defaultOpenKeys={['users']} // expand Users by default
+      expandIcon={({ isOpen }) => (
+        <span style={{ fontSize: 16, marginRight: 8 }}>
+          {isOpen ? '▼' : '▶'}
+        </span>
+      )}
     />
   )
 
@@ -274,6 +294,7 @@ const SystemLayout = () => {
         open={drawerVisible}
         onClose={() => setDrawerVisible(false)}
         className='lg:hidden'
+        bodyStyle={{ padding: 0 }}
       >
         {mobileMenu}
       </Drawer>

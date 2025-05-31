@@ -12,6 +12,7 @@ import CreditPaymentsScreen from './pages/admin/credits'
 import CashInScreen from './pages/cashin'
 import SaleScreen from './pages/tellers/pos'
 import { ConfigProvider, App as AntdApp } from 'antd'
+import ExpenseCaptureList from './pages/admin/expenses'
 
 export default function App () {
   return (
@@ -31,8 +32,8 @@ export default function App () {
             <Route path='users/admins' element={<AdminUsers />} />
             <Route path='users/tellers' element={<TellersPage />} />
             <Route path='products' element={<ProductsPage />} />
-            <Route path='users/admins' element={<AdminUsers />} />
             <Route path='credits' element={<CreditPaymentsScreen />} />
+            <Route path='expenses' element={<ExpenseCaptureList />} />{' '}
             {/* Add more routes here as needed */}
           </Route>
           {/* Teller Routes */}

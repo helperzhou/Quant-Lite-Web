@@ -28,6 +28,7 @@ import {
   addDoc,
   orderBy,
   query,
+  where,
   Timestamp,
   runTransaction,
   doc
@@ -78,13 +79,21 @@ export default function POSScreen () {
   const [amountPaid, setAmountPaid] = useState(0)
   const [dueDate, setDueDate] = useState(null)
 
-  // Fetch customers/products
+  // Fetch customers/products (filtered by companyName)
   useEffect(() => {
     async function fetchData () {
-      const [cSnap, pSnap] = await Promise.all([
-        getDocs(query(collection(db, 'customers'), orderBy('name'))),
-        getDocs(query(collection(db, 'products'), orderBy('name')))
-      ])
+      if (!currentUser?.companyName) return
+      console.log(currentUser.companyName)
+      const cSnap = await getDocs(
+        query(
+          collection(db, 'customers'),
+          where('companyName', '==', currentUser.companyName),
+          orderBy('name')
+        )
+      )
+      const pSnap = await getDocs(
+        query(collection(db, 'products'), orderBy('name'))
+      )
       setCustomers(
         cSnap.docs.map(doc => ({ ...doc.data(), id: doc.id } as Customer))
       )
@@ -93,7 +102,7 @@ export default function POSScreen () {
       )
     }
     fetchData()
-  }, [])
+  }, [currentUser])
 
   // Add to cart logic
   const addToCart = () => {
@@ -141,9 +150,27 @@ export default function POSScreen () {
   const removeFromCart = (id: string) => setCart(cart.filter(i => i.id !== id))
 
   // Add new customer logic (inline in modal)
-  const handleAddCustomer = async (values: Customer) => {
-    const entry = {
-      ...values,
+  const handleAddCustomer = async (values: { name: string; phone: string }) => {
+    // Prevent double entry: find by phone and companyName
+    const existing = customers.find(
+      c => c.phone.replace(/\D/g, '') === values.phone.replace(/\D/g, '') // normalize
+    )
+    if (existing) {
+      // Use this customer instead
+      setSelectedCustomer(existing)
+      setCustomerModal(false)
+      setShowNewCustomer(false)
+      newCustomerForm.resetFields()
+      messageApi.info(
+        'Customer with that phone already exists. Selected existing record.'
+      )
+      return
+    }
+
+    // Save new customer
+    const entry: Customer = {
+      name: values.name,
+      phone: values.phone,
       creditScore: 600,
       companyName: currentUser?.companyName || ''
     }
@@ -154,35 +181,42 @@ export default function POSScreen () {
     setCustomerModal(false)
     setShowNewCustomer(false)
     newCustomerForm.resetFields()
+    messageApi.success('New customer added and selected.')
   }
 
   // Cart total
   const total = cart.reduce((sum, item) => sum + item.subtotal, 0)
   const change = paymentType === 'Cash' ? amountPaid - total : 0
 
-  // SALE SUBMISSION WITH DEBUGGING
+  // SALE SUBMISSION
   const handleSubmit = async () => {
-    if (!selectedCustomer || cart.length === 0) {
-      messageApi.warning('Select customer and add at least one product')
+    if (cart.length === 0) {
+      messageApi.warning('Add at least one product to the cart')
       return
     }
-    if (paymentType === 'Credit' && (selectedCustomer.creditScore ?? 0) < 600) {
+    if (
+      paymentType === 'Credit' &&
+      (!selectedCustomer || (selectedCustomer.creditScore ?? 0) < 600)
+    ) {
       messageApi.error('Customer credit score too low for credit sale')
       return
     }
 
     // Prepare sale object
-    const sale = {
-      customerId: selectedCustomer.id,
-      customer: selectedCustomer.name,
-      companyName: currentUser?.companyName || '',
+    const sale: any = {
       cart,
       paymentType,
       total,
       branch: tellerBranch,
       tellerId: currentUser?.uid,
       tellerName: currentUser?.name || '',
-      createdAt: Timestamp.now()
+      createdAt: Timestamp.now(),
+      companyName: currentUser?.companyName || ''
+    }
+
+    if (selectedCustomer) {
+      sale.customerId = selectedCustomer.id
+      sale.customer = selectedCustomer.name
     }
 
     // Add fields for payment
@@ -226,14 +260,14 @@ export default function POSScreen () {
       }
 
       // Save the sale after successful stock deduction
-      const result = await addDoc(collection(db, 'sales'), sale)
+      await addDoc(collection(db, 'sales'), sale)
       setCart([])
       setAmountPaid(0)
       setDueDate(null)
       setSelectedCustomer(null)
       messageApi.success('Sale submitted successfully!')
 
-      if (paymentType === 'Credit') {
+      if (paymentType === 'Credit' && selectedCustomer) {
         const creditRecord = {
           customerId: selectedCustomer.id,
           name: selectedCustomer.name,
@@ -272,7 +306,9 @@ export default function POSScreen () {
         >
           <div>
             <Text strong>
-              {selectedCustomer ? selectedCustomer.name : 'Select Customer'}
+              {selectedCustomer
+                ? selectedCustomer.name
+                : 'Select Customer (Optional)'}
             </Text>
             <div style={{ fontSize: 12, color: '#888' }}>
               {selectedCustomer?.phone}
@@ -447,9 +483,10 @@ export default function POSScreen () {
             block
             onClick={handleSubmit}
             disabled={
-              !selectedCustomer ||
               cart.length === 0 ||
-              (paymentType === 'Cash' && amountPaid < total)
+              (paymentType === 'Cash' && amountPaid < total) ||
+              (paymentType === 'Credit' &&
+                (!selectedCustomer || selectedCustomer.creditScore < 600))
             }
           >
             Submit Sale
@@ -528,13 +565,6 @@ export default function POSScreen () {
               <Form.Item
                 name='phone'
                 label='Phone Number'
-                rules={[{ required: true }]}
-              >
-                <Input />
-              </Form.Item>
-              <Form.Item
-                name='idNumber'
-                label='ID Number'
                 rules={[{ required: true }]}
               >
                 <Input />
