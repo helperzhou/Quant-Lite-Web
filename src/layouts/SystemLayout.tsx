@@ -16,7 +16,8 @@ import {
   AppstoreOutlined,
   DollarOutlined,
   CreditCardOutlined,
-  EditOutlined
+  EditOutlined,
+  MoneyCollectOutlined
 } from '@ant-design/icons'
 import { Outlet, useLocation, useNavigate, Link } from 'react-router-dom'
 import { useEffect, useState } from 'react'
@@ -84,6 +85,7 @@ const SystemLayout = () => {
   // --- Menu items based on role ---
   const adminMenuItems = [
     { key: '/admin', icon: <HomeOutlined />, label: 'Home' },
+    { key: '/tellers', icon: <MoneyCollectOutlined />, label: 'POS' },
     {
       key: 'users',
       icon: <TeamOutlined />,
@@ -148,6 +150,7 @@ const SystemLayout = () => {
             ]
           : [
               { key: '/admin', icon: <HomeOutlined />, label: 'Home' },
+              { key: '/tellers', icon: <MoneyCollectOutlined />, label: 'POS' },
               {
                 key: 'users',
                 icon: <TeamOutlined />,
