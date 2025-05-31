@@ -1,54 +1,48 @@
-# React + TypeScript + Vite
+# Quant Lite POS Admin Dashboard
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A modern, full-featured Point of Sale (POS) and business management dashboard built with **React**, **TypeScript**, **Ant Design**, and **Firebase**. The system is mobile-first and responsive, supporting both admin and teller workflows for retail environments.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Features
 
-## Expanding the ESLint configuration
+- **Authentication & User Management**  
+  - Secure login, user roles (admin/teller), profile management
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- **Point of Sale (POS) Module**  
+  - Create sales with product & customer selection, multi-method payments, real-time stock updates
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
-```
+- **Products Management**  
+  - Add, edit, restock, or delete products  
+  - Upload products via scanned receipts or manual entry  
+  - See live statistics and analytics
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+- **Customer Management**  
+  - Add/search customers, credit score enforcement, prevent duplicate entries
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+- **Credits & Cash-in Tracking**  
+  - Track outstanding credits, record teller cash-in, daily expected amounts
 
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
-```
+- **Expenses Management**  
+  - Capture and view business expenses by category  
+  - Mobile-friendly quick entry and table/list view
+
+- **Dashboard Analytics**  
+  - Sales, products, credits, tellers, and expense insights  
+  - Exportable reports and drill-down modals
+
+- **Mobile Optimized**  
+  - All features accessible on both desktop and mobile devices  
+  - Drawer navigation, custom scrollbars, responsive components
+
+---
+
+## Tech Stack
+
+- **Frontend:** React, TypeScript, Ant Design (antd), React Router
+- **State/DB:** Firebase Auth, Firestore
+- **Charting:** Highcharts (for advanced dashboards)
+- **Deployment:** Vercel (or your preferred platform)
+
+---
+
