@@ -117,7 +117,7 @@ export default function POSScreen () {
             ? {
                 ...i,
                 quantity: i.quantity + productQty,
-                subtotal: (i.quantity + productQty) * i.unitPrice
+                subtotal: (i.quantity + productQty) * i.sellingPrice
               }
             : i
         )
@@ -128,7 +128,7 @@ export default function POSScreen () {
         {
           ...selectedProduct,
           quantity: productQty,
-          subtotal: productQty * selectedProduct.unitPrice
+          subtotal: productQty * selectedProduct.sellingPrice
         }
       ])
     }
@@ -296,7 +296,7 @@ export default function POSScreen () {
               {selectedProduct ? selectedProduct.name : 'Select Product'}
             </Text>
             <div style={{ fontSize: 12, color: '#888' }}>
-              {selectedProduct ? `Price: R${selectedProduct.unitPrice}` : ''}
+              {selectedProduct ? `Price: R${selectedProduct.sellingPrice}` : ''}
             </div>
           </div>
           <ShoppingCartOutlined />
@@ -332,10 +332,11 @@ export default function POSScreen () {
               columns={[
                 { title: 'Product', dataIndex: 'name' },
                 { title: 'Qty', dataIndex: 'quantity' },
-                { title: 'Unit Price', dataIndex: 'unitPrice' },
+                { title: 'Unit Price', dataIndex: 'sellingPrice' },
                 {
                   title: 'Total',
-                  render: (_, r) => `R${(r.unitPrice * r.quantity).toFixed(2)}`
+                  render: (_, r) =>
+                    `R${(r.sellingPrice * r.quantity).toFixed(2)}`
                 },
                 {
                   title: 'Action',
@@ -367,7 +368,7 @@ export default function POSScreen () {
                   <Col>
                     <Text strong>{item.name}</Text>{' '}
                     <Tag>
-                      {item.quantity} x R{item.unitPrice}
+                      {item.quantity} x R{item.sellingPrice}
                     </Tag>
                     <div>Total: R{item.subtotal.toFixed(2)}</div>
                   </Col>
@@ -580,7 +581,7 @@ export default function POSScreen () {
                   <div>
                     <Text strong>{p.name}</Text>
                     <div style={{ fontSize: 13, color: '#888' }}>
-                      R{p.unitPrice} &nbsp; | &nbsp; Stock: {p.qty ?? 0}{' '}
+                      R{p.sellingPrice} &nbsp; | &nbsp; Stock: {p.qty ?? 0}{' '}
                       {p.unit || ''}
                     </div>
                   </div>
