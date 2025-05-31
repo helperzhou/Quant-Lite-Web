@@ -31,6 +31,7 @@ import { db } from '../../firebase'
 import { useMediaQuery } from 'react-responsive'
 import ProductStatisticsDashboard from '../../components/ProductsDashboard'
 import type { Product } from '../../types/type'
+import { useOutletContext } from 'react-router-dom'
 
 type ProductFormValues = {
   name: string
@@ -59,6 +60,8 @@ type ReceiptData = {
   items: ReceiptItem[]
 }
 const ProductsPage = () => {
+  const { currentUser } = useOutletContext<any>()
+  const companyName = currentUser?.companyName
   const [messageApi, contextHolder] = message.useMessage()
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
@@ -80,8 +83,13 @@ const ProductsPage = () => {
   const [restockForm] = Form.useForm()
 
   useEffect(() => {
-    const unsub = onSnapshot(
+    if (!companyName) return
+    const q = query(
       collection(db, 'products'),
+      where('companyName', '==', companyName)
+    )
+    const unsub = onSnapshot(
+      q,
       snapshot => {
         const data: Product[] = snapshot.docs.map(doc => {
           const d = doc.data() as Partial<Product>
@@ -98,7 +106,6 @@ const ProductsPage = () => {
           }
         })
         setProducts(data)
-
         setLoading(false)
       },
       err => {
@@ -107,7 +114,7 @@ const ProductsPage = () => {
       }
     )
     return () => unsub()
-  }, [])
+  }, [companyName])
 
   const handleDelete = async (id: string) => {
     try {
@@ -130,12 +137,12 @@ const ProductsPage = () => {
   }) => {
     if (!restockProduct) return
     try {
-      // Update qty and optionally update purchasePrice or track in a restock history
       const updatedQty = (restockProduct.qty ?? 0) + values.qty
       await updateDoc(doc(db, 'products', restockProduct.id), {
         qty: updatedQty,
-        purchasePrice: values.purchasePrice, // overwrite or store as array/history as needed
-        lastRestocked: new Date()
+        purchasePrice: values.purchasePrice,
+        lastRestocked: new Date(),
+        companyName // <-- also here (optional if it never changes, but safe for consistency)
       })
       messageApi.success('Product restocked')
       setRestockModalVisible(false)
@@ -153,31 +160,48 @@ const ProductsPage = () => {
       form.setFieldsValue({
         ...record,
         ...prefill,
-        price: prefill?.price ?? record?.price ?? record?.unitPrice ?? 0
+        sellingPrice:
+          prefill?.sellingPrice ??
+          record?.unitPrice ??
+          record?.sellingPrice ??
+          0,
+        purchasePrice: prefill?.purchasePrice ?? record?.purchasePrice ?? 0
       })
     }, 0)
     if (isMobile) setDrawerVisible(true)
     else setModalVisible(true)
   }
 
-  const handleSave = async (values: Product) => {
+  const handleSave = async (values: any) => {
     try {
-      const data = {
+      const isNew = !editingProduct
+      // If creating new: take purchasePrice from form, else preserve old value (or allow edit)
+      const data: any = {
         name: values.name,
         type: values.type,
+        companyName,
+        unit: values.unit,
+        qty: values.qty || 0,
+        minQty: values.minQty || 0,
+        maxQty: values.maxQty || 0,
+        unitPrice:
+          typeof values.sellingPrice === 'number'
+            ? values.sellingPrice
+            : parseFloat(values.sellingPrice),
         ...(values.type === 'product'
           ? {
-              unitPrice:
-                typeof values.price === 'number'
-                  ? values.price
-                  : parseFloat(values.price),
-              qty: values.qty || 0,
-              minQty: values.minQty || 0,
-              maxQty: values.maxQty || 0,
+              purchasePrice: isNew
+                ? typeof values.purchasePrice === 'number'
+                  ? values.purchasePrice
+                  : parseFloat(values.purchasePrice || 0)
+                : values.purchasePrice !== undefined
+                ? typeof values.purchasePrice === 'number'
+                  ? values.purchasePrice
+                  : parseFloat(values.purchasePrice)
+                : editingProduct?.purchasePrice ?? 0,
               currentStock: 0
             }
           : {
-              price: parseFloat(values.price),
               availableValue: values.availableValue || 0
             })
       }

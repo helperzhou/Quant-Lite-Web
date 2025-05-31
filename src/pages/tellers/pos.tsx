@@ -142,7 +142,11 @@ export default function POSScreen () {
 
   // Add new customer logic (inline in modal)
   const handleAddCustomer = async (values: Customer) => {
-    const entry = { ...values, creditScore: 600 }
+    const entry = {
+      ...values,
+      creditScore: 600,
+      companyName: currentUser?.companyName || ''
+    }
     const docRef = await addDoc(collection(db, 'customers'), entry)
     const customer = { ...entry, id: docRef.id }
     setCustomers(prev => [...prev, customer])
@@ -171,6 +175,7 @@ export default function POSScreen () {
     const sale = {
       customerId: selectedCustomer.id,
       customer: selectedCustomer.name,
+      companyName: currentUser?.companyName || '',
       cart,
       paymentType,
       total,

@@ -19,7 +19,9 @@ import {
   doc,
   onSnapshot,
   setDoc,
-  updateDoc
+  updateDoc,
+  query,
+  where
 } from 'firebase/firestore'
 import { createUserWithEmailAndPassword } from 'firebase/auth'
 import { db, auth } from '../../../firebase'
@@ -40,13 +42,21 @@ const AdminsPage = () => {
   const isMobile = useMediaQuery({ maxWidth: 767 })
   const [search, setSearch] = useState('')
 
+  // UseEffect with companyName filter
   useEffect(() => {
-    const unsub = onSnapshot(
+    if (!currentUser?.companyName) return
+    const q = query(
       collection(db, 'users'),
+      where('userRole', '==', 'admin'),
+      where('companyName', '==', currentUser.companyName)
+    )
+    const unsub = onSnapshot(
+      q,
       snapshot => {
-        const data = snapshot.docs
-          .map(doc => ({ id: doc.id, ...(doc.data() as Admin) }))
-          .filter(user => user.userRole === 'admin')
+        const data = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...(doc.data() as Admin)
+        }))
         setAdmins(data)
         setLoading(false)
       },
@@ -56,7 +66,7 @@ const AdminsPage = () => {
       }
     )
     return () => unsub()
-  }, [])
+  }, [currentUser?.companyName])
 
   const handleDelete = async (id: string) => {
     try {
@@ -82,27 +92,27 @@ const AdminsPage = () => {
     }
   }
 
+  // Add companyName to BOTH create and update
   const handleSave = async (values: Admin | any) => {
     setSaving(true)
-    console.log(editingAdmin ? 'Updating admin...' : 'Creating admin...')
     try {
       if (editingAdmin) {
-        console.log('Update values:', values)
         await updateDoc(doc(db, 'users', editingAdmin.id), {
           ...values,
-          userRole: 'admin'
+          userRole: 'admin',
+          companyName: currentUser.companyName,
+          branches: currentUser.branches || [],
+          beneficiaryName: currentUser.beneficiaryName || '',
+          workers: currentUser.workers || 0,
+          monthlyTurnover: currentUser.monthlyTurnover || 0
         })
         messageApi.success('Admin updated')
-        console.log('Admin updated successfully.')
       } else {
-        console.log('Registering admin with:', values.email)
         const cred = await createUserWithEmailAndPassword(
           auth,
           values.email,
           values.password
         )
-        console.log('Firebase auth created:', cred.user.uid)
-        console.log(currentUser)
         await setDoc(doc(db, 'users', cred.user.uid), {
           ...values,
           userRole: 'admin',
@@ -116,14 +126,11 @@ const AdminsPage = () => {
         messageApi.success(
           `Admin created with temp password: ${values.password}`
         )
-        console.log('Admin Firestore document created.')
       }
-
       setDrawerVisible(false)
       setModalVisible(false)
     } catch (err: any) {
       messageApi.error('Error saving admin')
-      console.error('Admin save error:', err)
     } finally {
       setSaving(false)
     }
@@ -137,7 +144,7 @@ const AdminsPage = () => {
 
   return (
     <>
-      {contextHolder}{' '}
+      {contextHolder}
       <div className='bg-white p-4 rounded-lg shadow-sm'>
         <div className='flex justify-between items-center mb-4'>
           <h2 className='text-xl font-semibold'>Admin Users</h2>
@@ -149,7 +156,6 @@ const AdminsPage = () => {
             Add Admin
           </Button>
         </div>
-
         <Input.Search
           placeholder='Search admin by name or email'
           value={search}
@@ -297,7 +303,7 @@ const AdminsPage = () => {
               </Form.Item>
             )}
             <Form.Item>
-              <Button type='primary' htmlType='submit' block>
+              <Button type='primary' htmlType='submit' block loading={saving}>
                 {editingAdmin ? 'Update' : 'Create'}
               </Button>
             </Form.Item>

@@ -36,6 +36,27 @@ import dayjs from 'dayjs'
 import { useOutletContext } from 'react-router-dom'
 import type { Teller } from '../../../types/type'
 
+function getFirebaseErrorMessage (error) {
+  // Handles both string code and error object
+  const code = error?.code || error
+  switch (code) {
+    case 'auth/email-already-in-use':
+      return 'This email is already registered. Try logging in or use another email.'
+    case 'auth/invalid-email':
+      return 'The email address is invalid. Please enter a valid email.'
+    case 'auth/weak-password':
+      return 'Password should be at least 6 characters long.'
+    case 'auth/missing-password':
+      return 'Please enter a password.'
+    case 'auth/missing-email':
+      return 'Please enter an email address.'
+    case 'auth/network-request-failed':
+      return 'Network error. Please check your connection and try again.'
+    default:
+      return 'Something went wrong. Please try again.'
+  }
+}
+
 const TellersPage = () => {
   const [messageApi, contextHolder] = message.useMessage()
   const { currentUser } = useOutletContext()
@@ -153,7 +174,6 @@ const TellersPage = () => {
           userRole: 'teller',
           uid: cred.user.uid,
           companyName: currentUser.companyName,
-          branches: [values.branch], // Save as array for consistency
           branch: values.branch, // Redundant but makes it easier to query
           beneficiaryName: currentUser.beneficiaryName || '',
           workers: currentUser.workers || 0,
@@ -163,8 +183,9 @@ const TellersPage = () => {
       }
       setDrawerVisible(false)
       setModalVisible(false)
-    } catch (err: any) {
-      messageApi.error('Error saving teller')
+    } catch (err) {
+      console.error(err)
+      messageApi.error(getFirebaseErrorMessage(err))
     }
   }
 
