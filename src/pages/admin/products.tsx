@@ -28,7 +28,7 @@ import {
   deleteDoc,
   doc,
   onSnapshot,
-  setDoc,
+  getDocs,
   updateDoc,
   addDoc,
   query,
@@ -45,28 +45,40 @@ type ProductFormValues = {
   name: string
   type: 'product' | 'service'
   sellingPrice: number | string
-  purchasePrice?: number | string // Only set when restocking/adding
-  unit?: string // e.g. "kg", "item", "litre"
+  purchasePrice?: number | string
+  unit?: string
   qty?: number
   minQty?: number
   maxQty?: number
   availableValue?: number
 }
 
-type ReceiptItem = {
-  name: string
-  quantity: number
-  unit_price: number
-  total_price: number
-  category: string
+function useProductSalesStats (products) {
+  const [bestsellers, setBestsellers] = useState<{ [id: string]: number }>({})
+
+  useEffect(() => {
+    async function fetchSales () {
+      const salesSnapshot = await getDocs(collection(db, 'sales'))
+      const salesData = salesSnapshot.docs.map(doc => doc.data())
+      // Aggregate: productId -> total quantity sold
+      const productSales = {}
+      for (const sale of salesData) {
+        if (Array.isArray(sale.cart)) {
+          for (const item of sale.cart) {
+            const id = item.id
+            if (!id) continue
+            productSales[id] = (productSales[id] || 0) + (item.quantity || 0)
+          }
+        }
+      }
+      setBestsellers(productSales)
+    }
+    fetchSales()
+  }, [products]) // re-aggregate if product list changes
+
+  return bestsellers
 }
 
-type ReceiptData = {
-  store_name: string
-  receipt_date: string
-  total_amount: number
-  items: ReceiptItem[]
-}
 const ProductsPage = () => {
   const { currentUser } = useOutletContext<any>()
   const [importerOpen, setImporterOpen] = useState(false)
@@ -74,22 +86,20 @@ const ProductsPage = () => {
   const [messageApi, contextHolder] = message.useMessage()
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
-  const [drawerVisible, setDrawerVisible] = useState(false)
   const [modalVisible, setModalVisible] = useState(false)
+  const [manualDrawerOpen, setManualDrawerOpen] = useState(false)
   const [form] = Form.useForm()
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [search, setSearch] = useState('')
   const [tabKey, setTabKey] = useState('list')
-  const [methodModal, setMethodModal] = useState(false)
-  const [addMethod, setAddMethod] = useState<'manual' | 'image' | null>(null)
-  const [formType, setFormType] = useState<'product' | 'service'>('product')
-  const isMobile = useMediaQuery({ maxWidth: 767 })
-  const [manualDrawerOpen, setManualDrawerOpen] = useState(false)
   const [importDrawerOpen, setImportDrawerOpen] = useState(false)
   const [restockModalVisible, setRestockModalVisible] = useState(false)
   const [restockProduct, setRestockProduct] = useState<Product | null>(null)
   const [restockForm] = Form.useForm()
+  const [formType, setFormType] = useState<'product' | 'service'>('product')
+  const isMobile = useMediaQuery({ maxWidth: 767 })
 
+  // Fetch products
   useEffect(() => {
     if (!companyName) return
     const q = query(
@@ -110,9 +120,13 @@ const ProductsPage = () => {
             minQty: d.minQty ?? 0,
             maxQty: d.maxQty ?? 0,
             availableValue: d.availableValue ?? 0,
-            unitPrice: d.unitPrice ?? d.price ?? 0
+            unitPrice: d.unitPrice ?? d.price ?? 0,
+            purchasePrice: d.purchasePrice ?? 0,
+            unitPurchasePrice: d.unitPurchasePrice ?? 0,
+            unit: d.unit || ''
           }
         })
+
         setProducts(data)
         setLoading(false)
       },
@@ -122,8 +136,49 @@ const ProductsPage = () => {
       }
     )
     return () => unsub()
+    // eslint-disable-next-line
   }, [companyName])
 
+  // Properly sync form fields & type when modal/drawer is opened and when editingProduct changes
+  useEffect(() => {
+    if (modalVisible || manualDrawerOpen) {
+      if (editingProduct) {
+        // Edit mode
+        form.setFieldsValue({
+          ...editingProduct,
+          sellingPrice:
+            editingProduct.unitPrice ?? editingProduct.sellingPrice ?? 0,
+          purchasePrice: editingProduct.purchasePrice ?? 0,
+          type: editingProduct.type ?? 'product'
+        })
+        setFormType(editingProduct.type ?? 'product')
+      } else {
+        // Add mode
+        form.resetFields()
+        form.setFieldsValue({ type: 'product' })
+        setFormType('product')
+      }
+    }
+    // eslint-disable-next-line
+  }, [modalVisible, manualDrawerOpen, editingProduct])
+
+  // Always reset everything on close
+  const closeForm = () => {
+    setModalVisible(false)
+    setManualDrawerOpen(false)
+    setEditingProduct(null)
+    form.resetFields()
+    setFormType('product')
+  }
+
+  // Use this for both Add and Edit. For Add: openForm(null)
+  const openForm = (record: Product | null = null) => {
+    setEditingProduct(record)
+    if (isMobile) setManualDrawerOpen(true)
+    else setModalVisible(true)
+  }
+
+  // Delete
   const handleDelete = async (id: string) => {
     try {
       await deleteDoc(doc(db, 'products', id))
@@ -133,12 +188,12 @@ const ProductsPage = () => {
     }
   }
 
+  // Restock
   const openRestockModal = (product: Product) => {
     setRestockProduct(product)
     restockForm.resetFields()
     setRestockModalVisible(true)
   }
-
   const handleRestock = async (values: {
     qty: number
     purchasePrice: number
@@ -146,11 +201,15 @@ const ProductsPage = () => {
     if (!restockProduct) return
     try {
       const updatedQty = (restockProduct.qty ?? 0) + values.qty
+      const unitPurchasePrice =
+        values.qty > 0 ? +(values.purchasePrice / values.qty).toFixed(2) : 0
+
       await updateDoc(doc(db, 'products', restockProduct.id), {
         qty: updatedQty,
         purchasePrice: values.purchasePrice,
+        unitPurchasePrice,
         lastRestocked: new Date(),
-        companyName // <-- also here (optional if it never changes, but safe for consistency)
+        companyName
       })
       messageApi.success('Product restocked')
       setRestockModalVisible(false)
@@ -160,30 +219,19 @@ const ProductsPage = () => {
     }
   }
 
-  const openForm = (record: Product | null = null, prefill: any = null) => {
-    form.resetFields()
-    setEditingProduct(record)
-    setFormType(prefill?.type || record?.type || 'product')
-    setTimeout(() => {
-      form.setFieldsValue({
-        ...record,
-        ...prefill,
-        sellingPrice:
-          prefill?.sellingPrice ??
-          record?.unitPrice ??
-          record?.sellingPrice ??
-          0,
-        purchasePrice: prefill?.purchasePrice ?? record?.purchasePrice ?? 0
-      })
-    }, 0)
-    if (isMobile) setDrawerVisible(true)
-    else setModalVisible(true)
-  }
-
+  // Add or Edit
   const handleSave = async (values: any) => {
     try {
       const isNew = !editingProduct
-      // If creating new: take purchasePrice from form, else preserve old value (or allow edit)
+      let unitPurchasePrice = 0
+      if (values.type === 'product') {
+        if (isNew && values.purchasePrice && values.qty) {
+          unitPurchasePrice = +(values.purchasePrice / values.qty).toFixed(2)
+        } else if (editingProduct?.unitPurchasePrice) {
+          unitPurchasePrice = editingProduct.unitPurchasePrice
+        }
+      }
+
       const data: any = {
         name: values.name,
         type: values.type,
@@ -207,6 +255,7 @@ const ProductsPage = () => {
                   ? values.purchasePrice
                   : parseFloat(values.purchasePrice)
                 : editingProduct?.purchasePrice ?? 0,
+              unitPurchasePrice,
               currentStock: 0
             }
           : {
@@ -221,17 +270,18 @@ const ProductsPage = () => {
         await addDoc(collection(db, 'products'), data)
         messageApi.success('Product added')
       }
-      if (isMobile) {
-        setManualDrawerOpen(false)
-      } else {
-        setModalVisible(false)
-      }
+      closeForm()
     } catch (err: any) {
       messageApi.error('Error saving product')
     }
   }
 
-  const filteredProducts = products.filter(p =>
+  const bestsellers = useProductSalesStats(products)
+  const sortedProducts = [...products].sort(
+    (a, b) => (bestsellers[b.id] || 0) - (bestsellers[a.id] || 0)
+  )
+
+  const filteredProducts = sortedProducts.filter(p =>
     p.name?.toLowerCase().includes(search.toLowerCase())
   )
 
@@ -262,7 +312,8 @@ const ProductsPage = () => {
       >
         <Input placeholder='Enter name' />
       </Form.Item>
-
+      {/* For products, show selling & purchase price side by side (add only).
+          For edit, just show selling price (purchase price can be edited on restock) */}
       {formType === 'product' && !editingProduct ? (
         <Form.Item required>
           <Row gutter={12}>
@@ -313,7 +364,7 @@ const ProductsPage = () => {
                   name='minQty'
                   label='Min Qty'
                   rules={[{ required: true, message: 'Enter Min Qty' }]}
-                  style={{ marginBottom: 0 }} // Removes double margin with nested Form.Item
+                  style={{ marginBottom: 0 }}
                 >
                   <InputNumber min={0} style={{ width: '100%' }} />
                 </Form.Item>
@@ -351,7 +402,7 @@ const ProductsPage = () => {
 
   return (
     <>
-      {contextHolder}{' '}
+      {contextHolder}
       <div className='bg-white p-4 rounded-lg shadow-sm'>
         <Tabs activeKey={tabKey} onChange={key => setTabKey(key)}>
           <Tabs.TabPane tab='Products List' key='list'>
@@ -366,13 +417,7 @@ const ProductsPage = () => {
                   type='primary'
                   icon={<PlusOutlined />}
                   block={isMobile}
-                  onClick={() => {
-                    if (isMobile) {
-                      setManualDrawerOpen(true)
-                    } else {
-                      setModalVisible(true)
-                    }
-                  }}
+                  onClick={() => openForm(null)} // <--- ADD: always null!
                 >
                   Add Product
                 </Button>
@@ -408,7 +453,7 @@ const ProductsPage = () => {
                         </Button>
                         <Button
                           icon={<EditOutlined />}
-                          onClick={() => openForm(product)}
+                          onClick={() => openForm(product)} // <--- EDIT: pass product!
                         />
                         <Popconfirm
                           title='Delete product?'
@@ -423,6 +468,12 @@ const ProductsPage = () => {
                   >
                     <p>Type: {product.type}</p>
                     <p>Price: R{product.price || product.unitPrice}</p>
+                    <p>
+                      <strong>Unit Purchase Price:</strong>{' '}
+                      {product.unitPurchasePrice
+                        ? `R${product.unitPurchasePrice}`
+                        : '-'}
+                    </p>
                     <p>
                       <strong>Current Quantity: {product.qty ?? 0}</strong>
                       {product.unit ? ` ${product.unit}` : ''}
@@ -449,6 +500,12 @@ const ProductsPage = () => {
                     render: (_, r) => `R${r.unitPrice ?? r.price ?? 0}`
                   },
                   {
+                    title: 'Unit Purchase Price',
+                    dataIndex: 'unitPurchasePrice',
+                    key: 'unitPurchasePrice',
+                    render: val => (val ? `R${val}` : '-')
+                  },
+                  {
                     title: 'Actions',
                     key: 'actions',
                     render: (_, record) => (
@@ -458,7 +515,7 @@ const ProductsPage = () => {
                         </Button>
                         <Button
                           icon={<EditOutlined />}
-                          onClick={() => openForm(record)}
+                          onClick={() => openForm(record)} // <--- EDIT: pass product!
                         />
                         <Popconfirm
                           title='Delete product?'
@@ -490,7 +547,7 @@ const ProductsPage = () => {
         <Drawer
           title={editingProduct ? 'Edit Product' : 'Add Product'}
           open={isMobile && manualDrawerOpen}
-          onClose={() => setManualDrawerOpen(false)}
+          onClose={closeForm}
           placement='bottom'
           height='auto'
         >
@@ -500,35 +557,10 @@ const ProductsPage = () => {
         <Modal
           title={editingProduct ? 'Edit Product' : 'Add Product'}
           open={!isMobile && modalVisible}
-          onCancel={() => setModalVisible(false)}
+          onCancel={closeForm}
           footer={null}
         >
           {renderForm()}
-        </Modal>
-
-        <Modal
-          open={methodModal}
-          title='How would you like to add?'
-          onCancel={() => setMethodModal(false)}
-          footer={null}
-          centered
-        >
-          <Space direction='vertical' style={{ width: '100%' }}>
-            <Button
-              block
-              size='large'
-              onClick={() => {
-                setAddMethod('manual')
-                setMethodModal(false)
-                openForm(null)
-              }}
-            >
-              Manual Entry
-            </Button>
-            <Button type='primary' onClick={() => setImporterOpen(true)}>
-              Scan/Upload Receipt
-            </Button>
-          </Space>
         </Modal>
 
         {/* Receipt Import Drawer */}
@@ -541,7 +573,6 @@ const ProductsPage = () => {
           width={isMobile ? '100vw' : 700}
           destroyOnClose
         >
-          {/* All your receipt upload/import UI */}
           <ReceiptProductImporter
             companyName={companyName}
             onClose={() => setImportDrawerOpen(false)}
@@ -564,7 +595,7 @@ const ProductsPage = () => {
           </Form.Item>
           <Form.Item
             name='purchasePrice'
-            label='Purchase Price (per unit)'
+            label='Purchase Price (total price)'
             rules={[{ required: true }]}
           >
             <InputNumber min={0} style={{ width: '100%' }} />

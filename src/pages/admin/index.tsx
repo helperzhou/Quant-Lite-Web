@@ -36,16 +36,15 @@ const { Title, Text } = Typography
 const { TabPane } = Tabs
 const { useBreakpoint } = Grid
 
-// Hide scrollbars visually, but allow scroll (for Chrome, Firefox, Edge, etc)
-const noScrollbarStyle = (screens) => ({
-  maxHeight: screens.xs ? 340 : 440,
-  minHeight: 180, // So both tabs are visually balanced when lists are short
+// CSS for hiding scrollbar
+const noScrollbarStyle = {
+  maxHeight: screens => (screens.xs ? 340 : 440),
   overflowY: 'auto',
   marginBottom: 8,
   paddingRight: 4,
-  scrollbarWidth: 'none',
-  msOverflowStyle: 'none'
-})
+  scrollbarWidth: 'none', // Firefox
+  msOverflowStyle: 'none' // IE 10+
+}
 
 export default function AdminDashboard () {
   const screens = useBreakpoint()
@@ -63,7 +62,6 @@ export default function AdminDashboard () {
   const [loading, setLoading] = useState(true)
   const [modalVisible, setModalVisible] = useState(false)
   const [selectedTeller, setSelectedTeller] = useState<any>(null)
-  const [selectedCredit, setSelectedCredit] = useState<any>(null)
   const [expandedSaleRowKeys, setExpandedSaleRowKeys] = useState<string[]>([])
 
   useEffect(() => {
@@ -279,7 +277,11 @@ export default function AdminDashboard () {
           ) : (
             <div
               className='no-scrollbar'
-              style={noScrollbarStyle(screens)}
+              style={{
+                ...noScrollbarStyle,
+                maxHeight: screens.xs ? 340 : 440,
+                overflowY: 'auto'
+              }}
             >
               {/* List each teller ONCE */}
               {Object.entries(salesByTeller).map(([tellerId, tellerSales]) => {
@@ -302,9 +304,8 @@ export default function AdminDashboard () {
                         branch,
                         sales: tellerSales
                       })
-                      setSelectedCredit(null)
                       setModalVisible(true)
-                      setExpandedSaleRowKeys([])
+                      setExpandedSaleRowKeys([]) // Reset any expanded rows
                     }}
                   >
                     <Card.Meta
@@ -345,14 +346,17 @@ export default function AdminDashboard () {
           ) : (
             <div
               className='no-scrollbar'
-              style={noScrollbarStyle(screens)}
+              style={{
+                ...noScrollbarStyle,
+                maxHeight: screens.xs ? 340 : 440,
+                overflowY: 'auto'
+              }}
             >
               {credits.map(credit => (
                 <Card
                   key={credit.id}
                   className='mb-4 hover:shadow-md cursor-pointer'
                   onClick={() => {
-                    setSelectedCredit(credit)
                     setSelectedTeller(null)
                     setModalVisible(true)
                   }}
@@ -371,7 +375,9 @@ export default function AdminDashboard () {
                     description={
                       `R${credit.amountDue || credit.amount} • Due ` +
                       (credit.dueDate && credit.dueDate.seconds
-                        ? dayjs.unix(credit.dueDate.seconds).format('YYYY-MM-DD')
+                        ? dayjs
+                            .unix(credit.dueDate.seconds)
+                            .format('YYYY-MM-DD')
                         : credit.dueDate)
                     }
                   />
@@ -392,7 +398,6 @@ export default function AdminDashboard () {
         onCancel={() => {
           setModalVisible(false)
           setSelectedTeller(null)
-          setSelectedCredit(null)
           setExpandedSaleRowKeys([])
         }}
         footer={null}
@@ -443,80 +448,8 @@ export default function AdminDashboard () {
             </div>
           </div>
         )}
-
-        {/* Credit details */}
-        {selectedCredit && (
-          <div className='text-center'>
-            <Avatar
-              size={64}
-              icon={<ExclamationCircleOutlined />}
-              style={{
-                backgroundColor:
-                  selectedCredit.status === 'Overdue' ? '#D32F2F' : '#FFA726'
-              }}
-            />
-            <Title level={4} className='mt-3'>
-              {selectedCredit.name || selectedCredit.customer}
-            </Title>
-            <Text>
-              <div>
-                Amount Due: <b>R{selectedCredit.amountDue || selectedCredit.amount}</b>
-              </div>
-              <div>
-                Due Date:{' '}
-                <b>
-                  {selectedCredit.dueDate && selectedCredit.dueDate.seconds
-                    ? dayjs.unix(selectedCredit.dueDate.seconds).format('YYYY-MM-DD')
-                    : selectedCredit.dueDate || 'N/A'}
-                </b>
-              </div>
-              <div>
-                Status:{' '}
-                <b style={{ color: selectedCredit.status === 'Overdue' ? '#D32F2F' : '#FFA726' }}>
-                  {selectedCredit.status}
-                </b>
-              </div>
-              {Array.isArray(selectedCredit.products) && selectedCredit.products.length > 0 && (
-                <>
-                  <div style={{ marginTop: 18, textAlign: 'left' }}>
-                    <Title level={5}>Products</Title>
-                    <Table
-                      columns={[
-                        { title: 'Product', dataIndex: 'name', key: 'name' },
-                        { title: 'Qty', dataIndex: 'quantity', key: 'quantity' },
-                        {
-                          title: 'Unit Price',
-                          dataIndex: 'sellingPrice',
-                          key: 'sellingPrice',
-                          render: (v: number) => `R${v}`
-                        },
-                        {
-                          title: 'Subtotal',
-                          dataIndex: 'subtotal',
-                          key: 'subtotal',
-                          render: (_: any, r: any) =>
-                            `R${r.subtotal || r.sellingPrice * r.quantity}`
-                        }
-                      ]}
-                      dataSource={selectedCredit.products}
-                      size='small'
-                      pagination={false}
-                      rowKey={r => r.id || r.name + (r.sellingPrice || '')}
-                    />
-                  </div>
-                </>
-              )}
-              {selectedCredit.description && (
-                <div style={{ marginTop: 12, color: '#888' }}>
-                  {selectedCredit.description}
-                </div>
-              )}
-            </Text>
-          </div>
-        )}
       </Modal>
-
-      {/* Hide scrollbars visually, but allow scroll */}
+      {/* Style for hiding scrollbars */}
       <style>
         {`
           .no-scrollbar::-webkit-scrollbar { display: none; }
