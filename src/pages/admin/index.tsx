@@ -47,18 +47,11 @@ export default function AdminDashboard () {
   const [selectedItem, setSelectedItem] = useState<any>(null)
 
   useEffect(() => {
-    let unsub
     setLoading(true) // Ensure loading on mount
 
-    unsub = onAuthStateChanged(auth, async user => {
+    const unsub = onAuthStateChanged(auth, async user => {
       if (!user?.uid) {
         setLoading(false)
-        setBranchNames([])
-        setTellers([])
-        setCredits([])
-        setSalesTotals({})
-        setSalesList([])
-        setProductCount(0)
         return
       }
       try {
@@ -120,16 +113,13 @@ export default function AdminDashboard () {
         setSalesList(todaySalesArr)
       } catch (err) {
         // Log or show error as needed
-        setTellers([])
-        setCredits([])
-        setSalesTotals({})
-        setSalesList([])
-        setProductCount(0)
+        console.log(err)
       } finally {
         setLoading(false)
       }
     })
-    return () => unsub && unsub()
+    // Proper cleanup on unmount
+    return () => unsub()
   }, [])
 
   const openModal = (item: any) => {
