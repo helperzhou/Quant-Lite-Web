@@ -25,7 +25,9 @@ import {
   onSnapshot,
   setDoc,
   updateDoc,
-  addDoc
+  addDoc,
+  query,
+  where
 } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useMediaQuery } from 'react-responsive'
