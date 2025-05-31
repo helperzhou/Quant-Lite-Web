@@ -13,7 +13,9 @@ import {
   Modal,
   Table,
   InputNumber,
-  Tag
+  Tag,
+  Col,
+  Row
 } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons'
 import {
@@ -33,7 +35,9 @@ import type { Product } from '../../types/type'
 type ProductFormValues = {
   name: string
   type: 'product' | 'service'
-  price: number | string
+  sellingPrice: number | string
+  purchasePrice?: number | string // Only set when restocking/adding
+  unit?: string // e.g. "kg", "item", "litre"
   qty?: number
   minQty?: number
   maxQty?: number
@@ -71,6 +75,9 @@ const ProductsPage = () => {
   const [receiptModal, setReceiptModal] = useState(false)
   const [receiptLoading, setReceiptLoading] = useState(false)
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null)
+  const [restockModalVisible, setRestockModalVisible] = useState(false)
+  const [restockProduct, setRestockProduct] = useState<Product | null>(null)
+  const [restockForm] = Form.useForm()
 
   useEffect(() => {
     const unsub = onSnapshot(
@@ -106,8 +113,35 @@ const ProductsPage = () => {
     try {
       await deleteDoc(doc(db, 'products', id))
       messageApi.success('Product deleted')
-    } catch (err) {
+    } catch (err: any) {
       messageApi.error('Failed to delete product')
+    }
+  }
+
+  const openRestockModal = (product: Product) => {
+    setRestockProduct(product)
+    restockForm.resetFields()
+    setRestockModalVisible(true)
+  }
+
+  const handleRestock = async (values: {
+    qty: number
+    purchasePrice: number
+  }) => {
+    if (!restockProduct) return
+    try {
+      // Update qty and optionally update purchasePrice or track in a restock history
+      const updatedQty = (restockProduct.qty ?? 0) + values.qty
+      await updateDoc(doc(db, 'products', restockProduct.id), {
+        qty: updatedQty,
+        purchasePrice: values.purchasePrice, // overwrite or store as array/history as needed
+        lastRestocked: new Date()
+      })
+      messageApi.success('Product restocked')
+      setRestockModalVisible(false)
+      setRestockProduct(null)
+    } catch (err: any) {
+      messageApi.error('Failed to restock product')
     }
   }
 
@@ -157,7 +191,7 @@ const ProductsPage = () => {
       }
       setDrawerVisible(false)
       setModalVisible(false)
-    } catch (err) {
+    } catch (err: any) {
       messageApi.error('Error saving product')
     }
   }
@@ -193,23 +227,54 @@ const ProductsPage = () => {
       >
         <Input placeholder='Enter name' />
       </Form.Item>
+
       <Form.Item
-        name='price'
-        label='Price'
-        rules={[{ required: true, message: 'Please enter Price' }]}
+        name='sellingPrice'
+        label='Selling Price'
+        rules={[{ required: true }]}
       >
         <InputNumber min={0} style={{ width: '100%' }} />
       </Form.Item>
       {formType === 'product' && (
         <>
+          {!editingProduct && (
+            <Form.Item
+              name='purchasePrice'
+              label='Purchase Price'
+              rules={[{ required: true }]}
+            >
+              <InputNumber min={0} style={{ width: '100%' }} />
+            </Form.Item>
+          )}
+          <Form.Item name='unit' label='Unit' rules={[{ required: true }]}>
+            <Input placeholder='e.g. kg, litre, box' />
+          </Form.Item>
           <Form.Item name='qty' label='Quantity'>
             <InputNumber min={0} style={{ width: '100%' }} />
           </Form.Item>
-          <Form.Item name='minQty' label='Min Qty'>
-            <InputNumber min={0} style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item name='maxQty' label='Max Qty'>
-            <InputNumber min={0} style={{ width: '100%' }} />
+          <Form.Item label='Quantity Range' required>
+            <Row gutter={12}>
+              <Col span={12}>
+                <Form.Item
+                  name='minQty'
+                  label='Min Qty'
+                  rules={[{ required: true, message: 'Enter Min Qty' }]}
+                  style={{ marginBottom: 0 }} // Removes double margin with nested Form.Item
+                >
+                  <InputNumber min={0} style={{ width: '100%' }} />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item
+                  name='maxQty'
+                  label='Max Qty'
+                  rules={[{ required: true, message: 'Enter Max Qty' }]}
+                  style={{ marginBottom: 0 }}
+                >
+                  <InputNumber min={0} style={{ width: '100%' }} />
+                </Form.Item>
+              </Col>
+            </Row>
           </Form.Item>
         </>
       )}
@@ -263,6 +328,9 @@ const ProductsPage = () => {
                     size='small'
                     extra={
                       <Space>
+                        <Button onClick={() => openRestockModal(product)}>
+                          Restock
+                        </Button>
                         <Button
                           icon={<EditOutlined />}
                           onClick={() => openForm(product)}
@@ -299,6 +367,9 @@ const ProductsPage = () => {
                     key: 'actions',
                     render: (_, record) => (
                       <Space>
+                        <Button onClick={() => openRestockModal(record)}>
+                          Restock
+                        </Button>
                         <Button
                           icon={<EditOutlined />}
                           onClick={() => openForm(record)}
@@ -413,7 +484,7 @@ const ProductsPage = () => {
                   } else {
                     messageApi.error('Could not extract receipt info.')
                   }
-                } catch (err) {
+                } catch (err: any) {
                   messageApi.error('Failed to process image.')
                 } finally {
                   setReceiptLoading(false)
@@ -468,6 +539,34 @@ const ProductsPage = () => {
           )}
         </Modal>
       </div>
+      <Modal
+        open={restockModalVisible}
+        title='Restock Product'
+        onCancel={() => setRestockModalVisible(false)}
+        footer={null}
+      >
+        <Form form={restockForm} layout='vertical' onFinish={handleRestock}>
+          <Form.Item
+            name='qty'
+            label='Quantity to Add'
+            rules={[{ required: true }]}
+          >
+            <InputNumber min={1} style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item
+            name='purchasePrice'
+            label='Purchase Price (per unit)'
+            rules={[{ required: true }]}
+          >
+            <InputNumber min={0} style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item>
+            <Button type='primary' htmlType='submit' block>
+              Restock
+            </Button>
+          </Form.Item>
+        </Form>
+      </Modal>
     </>
   )
 }

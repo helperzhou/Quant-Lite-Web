@@ -51,7 +51,7 @@ export default function Onboarding () {
       })
       messageApi.success('Profile completed successfully!')
       navigate('/admin')
-    } catch (err) {
+    } catch (err: any) {
       console.error(err)
       messageApi.error('Failed to save your information. Try again.')
     } finally {

@@ -90,7 +90,7 @@ export default function Register () {
         'Google sign-in successful! Let’s complete your profile...'
       )
       navigate('/auth/onboarding')
-    } catch (err) {
+    } catch (err: any) {
       console.error('Google sign-in error:', err)
       messageApi.error('Google sign-in failed. Please try again.')
     } finally {

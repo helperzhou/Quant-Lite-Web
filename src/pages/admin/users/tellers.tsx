@@ -57,12 +57,18 @@ const TellersPage = () => {
   const branches = currentUser?.branches || []
 
   useEffect(() => {
-    const unsub = onSnapshot(
+    if (!currentUser?.companyName) return
+
+    const q = query(
       collection(db, 'users'),
+      where('userRole', '==', 'teller'),
+      where('companyName', '==', currentUser.companyName)
+    )
+
+    const unsub = onSnapshot(
+      q,
       snapshot => {
-        const data = snapshot.docs
-          .map(doc => ({ id: doc.id, ...doc.data() }))
-          .filter(user => user.userRole === 'teller')
+        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
         setTellers(data)
         setLoading(false)
       },
@@ -72,7 +78,7 @@ const TellersPage = () => {
       }
     )
     return () => unsub()
-  }, [])
+  }, [currentUser?.companyName])
 
   useEffect(() => {
     const fetchExpectations = async () => {
@@ -106,7 +112,7 @@ const TellersPage = () => {
     try {
       await deleteDoc(doc(db, 'users', id))
       messageApi.success('Teller deleted')
-    } catch (err) {
+    } catch (err: any) {
       messageApi.error('Failed to delete teller')
     }
   }
@@ -157,7 +163,7 @@ const TellersPage = () => {
       }
       setDrawerVisible(false)
       setModalVisible(false)
-    } catch (err) {
+    } catch (err: any) {
       messageApi.error('Error saving teller')
     }
   }

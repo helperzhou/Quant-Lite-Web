@@ -23,7 +23,9 @@ import {
   getDoc,
   getDocs,
   collection,
-  onSnapshot
+  onSnapshot,
+  where,
+  query
 } from 'firebase/firestore'
 import { onAuthStateChanged } from 'firebase/auth'
 
@@ -48,7 +50,9 @@ export default function AdminDashboard () {
         setBranchNames(branches)
 
         const [tellerSnap, creditSnap, productSnap] = await Promise.all([
-          getDocs(collection(db, 'tellers')),
+          getDocs(
+            query(collection(db, 'users'), where('userRole', '==', 'teller'))
+          ),
           getDocs(collection(db, 'credits')),
           getDocs(collection(db, 'products'))
         ])

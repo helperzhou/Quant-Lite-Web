@@ -95,10 +95,17 @@ export default function CashInScreen () {
       setCompanyName(userData?.companyName || '')
 
       // 2. Tellers for this company
-      const tellersSnap = await getDocs(query(collection(db, 'tellers')))
-      const tellersFiltered = tellersSnap.docs
-        .map(doc => ({ id: doc.id, ...doc.data() }))
-        .filter(t => t.companyName === userData?.companyName)
+      const tellersSnap = await getDocs(
+        query(
+          collection(db, 'users'),
+          where('companyName', '==', userData?.companyName),
+          where('userRole', '==', 'teller') // only get tellers
+        )
+      )
+      const tellersFiltered = tellersSnap.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }))
       setTellers(tellersFiltered)
     }
     fetchData()

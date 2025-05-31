@@ -28,7 +28,9 @@ import {
   addDoc,
   orderBy,
   query,
-  Timestamp
+  Timestamp,
+  runTransaction,
+  doc
 } from 'firebase/firestore'
 import { useOutletContext } from 'react-router-dom'
 import type { CartItem, Customer, PaymentType, Product } from '../../types/type'
@@ -96,6 +98,17 @@ export default function POSScreen () {
   // Add to cart logic
   const addToCart = () => {
     if (!selectedProduct || productQty < 1) return
+    const availableQty = selectedProduct.qty ?? 0
+    const alreadyInCart =
+      cart.find(i => i.id === selectedProduct.id)?.quantity ?? 0
+    if (productQty + alreadyInCart > availableQty) {
+      messageApi.error(
+        `Not enough stock. Only ${
+          availableQty - alreadyInCart
+        } units available.`
+      )
+      return
+    }
     const existing = cart.find(i => i.id === selectedProduct.id)
     if (existing) {
       setCart(
@@ -161,12 +174,11 @@ export default function POSScreen () {
       cart,
       paymentType,
       total,
-      branch: tellerBranch, // <--- ADD THIS LINE!
-      tellerId: currentUser?.uid, // (Optional: Save who made the sale)
-      tellerName: currentUser?.name || '', // (Optional)
+      branch: tellerBranch,
+      tellerId: currentUser?.uid,
+      tellerName: currentUser?.name || '',
       createdAt: Timestamp.now()
     }
-    // ...rest stays as before
 
     // Add fields for payment
     if (paymentType === 'Cash') {
@@ -189,10 +201,27 @@ export default function POSScreen () {
       sale.bank = 0
     }
 
-    console.log('Sale to be saved:', sale)
     try {
+      // Deduct stock atomically for each product in the cart
+      for (const item of cart) {
+        const prodRef = doc(db, 'products', item.id)
+        await runTransaction(db, async transaction => {
+          const prodDoc = await transaction.get(prodRef)
+          if (!prodDoc.exists()) {
+            throw new Error(`Product "${item.name}" does not exist.`)
+          }
+          const currentQty = prodDoc.data().qty ?? 0
+          if (currentQty < item.quantity) {
+            throw new Error(`Insufficient stock for ${item.name}.`)
+          }
+          transaction.update(prodRef, {
+            qty: currentQty - item.quantity
+          })
+        })
+      }
+
+      // Save the sale after successful stock deduction
       const result = await addDoc(collection(db, 'sales'), sale)
-      console.log('Saved sale with ID:', result.id)
       setCart([])
       setAmountPaid(0)
       setDueDate(null)
@@ -209,14 +238,14 @@ export default function POSScreen () {
           createdAt: Timestamp.now(),
           creditScore: selectedCustomer.creditScore ?? 600,
           branch: tellerBranch,
-          companyName: currentUser?.companyName || '', // <---- FIXED
+          companyName: currentUser?.companyName || '',
           products: cart
         }
         await addDoc(collection(db, 'credits'), creditRecord)
       }
-    } catch (err) {
-      console.error('Firestore save error:', err)
-      messageApi.error('Could not save sale: ' + err.message)
+    } catch (err: any) {
+      console.error('Error during sale/stock deduction:', err)
+      messageApi.error(err.message || 'Could not save sale or deduct stock.')
     }
   }
 
@@ -546,7 +575,8 @@ export default function POSScreen () {
                   <div>
                     <Text strong>{p.name}</Text>
                     <div style={{ fontSize: 13, color: '#888' }}>
-                      R{p.unitPrice}
+                      R{p.unitPrice} &nbsp; | &nbsp; Stock: {p.qty ?? 0}{' '}
+                      {p.unit || ''}
                     </div>
                   </div>
                 </Card>

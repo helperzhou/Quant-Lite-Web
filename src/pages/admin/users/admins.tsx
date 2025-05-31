@@ -62,7 +62,7 @@ const AdminsPage = () => {
     try {
       await deleteDoc(doc(db, 'users', id))
       messageApi.success('Admin deleted')
-    } catch (err) {
+    } catch (err: any) {
       messageApi.error('Failed to delete admin')
     }
   }
@@ -121,7 +121,7 @@ const AdminsPage = () => {
 
       setDrawerVisible(false)
       setModalVisible(false)
-    } catch (err) {
+    } catch (err: any) {
       messageApi.error('Error saving admin')
       console.error('Admin save error:', err)
     } finally {
