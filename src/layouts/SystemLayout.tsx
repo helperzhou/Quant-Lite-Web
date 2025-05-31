@@ -5,7 +5,11 @@ import {
   Breadcrumb,
   Avatar,
   Dropdown,
-  Button
+  message,
+  Form,
+  Input,
+  Button,
+  Space
 } from 'antd'
 import {
   MenuOutlined,
@@ -23,8 +27,9 @@ import {
 import { Outlet, useLocation, useNavigate, Link } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { auth, db } from '../firebase'
+import { updateProfile, updatePassword, updateEmail } from 'firebase/auth'
 import { onAuthStateChanged } from 'firebase/auth'
-import { doc, getDoc } from 'firebase/firestore'
+import { doc, updateDoc, getDoc } from 'firebase/firestore'
 
 const { Header, Sider, Content } = Layout
 
@@ -190,7 +195,7 @@ const SystemLayout = () => {
       defaultOpenKeys={['users']} // expand Users by default
       expandIcon={({ isOpen }) => (
         <span style={{ fontSize: 16, marginRight: 8 }}>
-          {isOpen ? '▼' : '▶'}
+          {isOpen ? '^' : '>'}
         </span>
       )}
     />
@@ -305,9 +310,107 @@ const SystemLayout = () => {
         open={accountDrawer}
         onClose={() => setAccountDrawer(false)}
       >
-        <p>Account editing form goes here</p>
+        <EditAccountForm
+          currentUser={currentUser}
+          auth={auth}
+          db={db}
+          onClose={() => setAccountDrawer(false)}
+        />
       </Drawer>
     </Layout>
+  )
+}
+
+function EditAccountForm ({ currentUser, auth, db, onClose }) {
+  const [form] = Form.useForm()
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (!currentUser) return
+    form.setFieldsValue({
+      name: currentUser.name || '',
+      userEmail: currentUser.userEmail || '',
+      phone: currentUser.phone || ''
+    })
+  }, [currentUser, form])
+
+  const handleFinish = async values => {
+    setLoading(true)
+    try {
+      // Update profile fields in Firestore
+      if (currentUser?.uid) {
+        await updateDoc(doc(db, 'users', currentUser.uid), {
+          name: values.name,
+          phone: values.phone
+        })
+      }
+
+      // Optionally: update password if changed
+      if (values.password) {
+        await updatePassword(auth.currentUser, values.password)
+      }
+
+      message.success('Account updated successfully!')
+      onClose()
+    } catch (e: any) {
+      message.error(
+        e.message.includes('auth/requires-recent-login')
+          ? 'Please log in again to change sensitive information.'
+          : e.message || 'Could not update account.'
+      )
+    }
+    setLoading(false)
+  }
+
+  return (
+    <Form
+      form={form}
+      layout='vertical'
+      onFinish={handleFinish}
+      style={{ marginTop: 8 }}
+      initialValues={{}}
+    >
+      <Form.Item
+        name='name'
+        label='Name'
+        rules={[{ required: true, message: 'Name is required' }]}
+      >
+        <Input placeholder='Enter your name' />
+      </Form.Item>
+      <Form.Item
+        name='userEmail'
+        label='Email'
+        rules={[
+          { required: true, message: 'Email is required' },
+          { type: 'email', message: 'Invalid email' }
+        ]}
+      >
+        <Input disabled placeholder='Email (not editable)' />
+      </Form.Item>
+      <Form.Item
+        name='phone'
+        label='Phone Number'
+        rules={[
+          { required: true, message: 'Phone number is required' },
+          { pattern: /^[0-9+\-\s]+$/, message: 'Invalid phone number' }
+        ]}
+      >
+        <Input placeholder='Enter phone number' />
+      </Form.Item>
+      <Form.Item
+        name='password'
+        label='New Password'
+        extra='Leave blank to keep current password'
+      >
+        <Input.Password placeholder='Enter new password (optional)' />
+      </Form.Item>
+      <Space>
+        <Button onClick={onClose}>Cancel</Button>
+        <Button type='primary' htmlType='submit' loading={loading}>
+          Save Changes
+        </Button>
+      </Space>
+    </Form>
   )
 }
 
