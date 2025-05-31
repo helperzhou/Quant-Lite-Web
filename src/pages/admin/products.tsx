@@ -17,7 +17,12 @@ import {
   Col,
   Row
 } from 'antd'
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons'
+import {
+  PlusOutlined,
+  EditOutlined,
+  DeleteOutlined,
+  UploadOutlined
+} from '@ant-design/icons'
 import {
   collection,
   deleteDoc,
@@ -34,6 +39,7 @@ import { useMediaQuery } from 'react-responsive'
 import ProductStatisticsDashboard from '../../components/ProductsDashboard'
 import type { Product } from '../../types/type'
 import { useOutletContext } from 'react-router-dom'
+import ReceiptProductImporter from './ProductReceiptUpload'
 
 type ProductFormValues = {
   name: string
@@ -63,6 +69,7 @@ type ReceiptData = {
 }
 const ProductsPage = () => {
   const { currentUser } = useOutletContext<any>()
+  const [importerOpen, setImporterOpen] = useState(false)
   const companyName = currentUser?.companyName
   const [messageApi, contextHolder] = message.useMessage()
   const [products, setProducts] = useState<Product[]>([])
@@ -71,15 +78,14 @@ const ProductsPage = () => {
   const [modalVisible, setModalVisible] = useState(false)
   const [form] = Form.useForm()
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
-  const isMobile = useMediaQuery({ maxWidth: 767 })
   const [search, setSearch] = useState('')
   const [tabKey, setTabKey] = useState('list')
   const [methodModal, setMethodModal] = useState(false)
   const [addMethod, setAddMethod] = useState<'manual' | 'image' | null>(null)
   const [formType, setFormType] = useState<'product' | 'service'>('product')
-  const [receiptModal, setReceiptModal] = useState(false)
-  const [receiptLoading, setReceiptLoading] = useState(false)
-  const [receiptData, setReceiptData] = useState<ReceiptData | null>(null)
+  const isMobile = useMediaQuery({ maxWidth: 767 })
+  const [manualDrawerOpen, setManualDrawerOpen] = useState(false)
+  const [importDrawerOpen, setImportDrawerOpen] = useState(false)
   const [restockModalVisible, setRestockModalVisible] = useState(false)
   const [restockProduct, setRestockProduct] = useState<Product | null>(null)
   const [restockForm] = Form.useForm()
@@ -215,8 +221,11 @@ const ProductsPage = () => {
         await addDoc(collection(db, 'products'), data)
         messageApi.success('Product added')
       }
-      setDrawerVisible(false)
-      setModalVisible(false)
+      if (isMobile) {
+        setManualDrawerOpen(false)
+      } else {
+        setModalVisible(false)
+      }
     } catch (err: any) {
       messageApi.error('Error saving product')
     }
@@ -254,31 +263,50 @@ const ProductsPage = () => {
         <Input placeholder='Enter name' />
       </Form.Item>
 
-      <Form.Item
-        name='sellingPrice'
-        label='Selling Price'
-        rules={[{ required: true }]}
-      >
-        <InputNumber min={0} style={{ width: '100%' }} />
-      </Form.Item>
+      {formType === 'product' && !editingProduct ? (
+        <Form.Item required>
+          <Row gutter={12}>
+            <Col span={12}>
+              <Form.Item
+                name='sellingPrice'
+                label='Selling Price'
+                rules={[{ required: true }]}
+                style={{ marginBottom: 0 }}
+              >
+                <InputNumber min={0} style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name='purchasePrice'
+                label='Purchase Price'
+                rules={[{ required: true }]}
+                style={{ marginBottom: 0 }}
+              >
+                <InputNumber min={0} style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+          </Row>
+        </Form.Item>
+      ) : (
+        <Form.Item
+          name='sellingPrice'
+          label='Selling Price'
+          rules={[{ required: true }]}
+        >
+          <InputNumber min={0} style={{ width: '100%' }} />
+        </Form.Item>
+      )}
+
       {formType === 'product' && (
         <>
-          {!editingProduct && (
-            <Form.Item
-              name='purchasePrice'
-              label='Purchase Price'
-              rules={[{ required: true }]}
-            >
-              <InputNumber min={0} style={{ width: '100%' }} />
-            </Form.Item>
-          )}
           <Form.Item name='unit' label='Unit' rules={[{ required: true }]}>
             <Input placeholder='e.g. kg, litre, box' />
           </Form.Item>
           <Form.Item name='qty' label='Quantity'>
             <InputNumber min={0} style={{ width: '100%' }} />
           </Form.Item>
-          <Form.Item label='Quantity Range' required>
+          <Form.Item required>
             <Row gutter={12}>
               <Col span={12}>
                 <Form.Item
@@ -327,16 +355,37 @@ const ProductsPage = () => {
       <div className='bg-white p-4 rounded-lg shadow-sm'>
         <Tabs activeKey={tabKey} onChange={key => setTabKey(key)}>
           <Tabs.TabPane tab='Products List' key='list'>
-            <div className='flex justify-between items-center mb-4'>
-              <h2 className='text-xl font-semibold'>Products</h2>
-              <Button
-                type='primary'
-                icon={<PlusOutlined />}
-                onClick={() => setMethodModal(true)}
+            <div className='flex flex-col sm:flex-row sm:justify-between items-start sm:items-center mb-4'>
+              <h2 className='text-xl font-semibold mb-2 sm:mb-0'>Products</h2>
+              <div
+                className={
+                  isMobile ? 'flex flex-col gap-2 w-full' : 'flex gap-2'
+                }
               >
-                Add Product
-              </Button>
+                <Button
+                  type='primary'
+                  icon={<PlusOutlined />}
+                  block={isMobile}
+                  onClick={() => {
+                    if (isMobile) {
+                      setManualDrawerOpen(true)
+                    } else {
+                      setModalVisible(true)
+                    }
+                  }}
+                >
+                  Add Product
+                </Button>
+                <Button
+                  icon={<UploadOutlined />}
+                  block={isMobile}
+                  onClick={() => setImportDrawerOpen(true)}
+                >
+                  Scan/Upload Receipt
+                </Button>
+              </div>
             </div>
+
             <Input.Search
               placeholder='Search products by name'
               value={search}
@@ -429,8 +478,8 @@ const ProductsPage = () => {
 
         <Drawer
           title={editingProduct ? 'Edit Product' : 'Add Product'}
-          open={isMobile && drawerVisible}
-          onClose={() => setDrawerVisible(false)}
+          open={isMobile && manualDrawerOpen}
+          onClose={() => setManualDrawerOpen(false)}
           placement='bottom'
           height='auto'
         >
@@ -465,105 +514,28 @@ const ProductsPage = () => {
             >
               Manual Entry
             </Button>
-            <Button
-              block
-              size='large'
-              type='dashed'
-              onClick={() => {
-                setAddMethod('image')
-                setMethodModal(false)
-                setReceiptModal(true)
-              }}
-            >
+            <Button type='primary' onClick={() => setImporterOpen(true)}>
               Scan/Upload Receipt
             </Button>
           </Space>
         </Modal>
 
-        <Modal
-          open={receiptModal}
-          title='Upload or Capture Receipt'
-          onCancel={() => setReceiptModal(false)}
-          footer={null}
-          centered
+        {/* Receipt Import Drawer */}
+        <Drawer
+          title='Import Products from Receipt(s)'
+          open={importDrawerOpen}
+          onClose={() => setImportDrawerOpen(false)}
+          placement={isMobile ? 'bottom' : 'right'}
+          height={isMobile ? '100vh' : undefined}
+          width={isMobile ? '100vw' : 700}
+          destroyOnClose
         >
-          <input
-            type='file'
-            accept='image/*'
-            capture='environment'
-            onChange={async e => {
-              const file = e.target.files?.[0]
-              if (!file) return
-              if (file) {
-                setReceiptLoading(true)
-                setReceiptData(null)
-                try {
-                  const formData = new FormData()
-                  formData.append('image', file)
-                  const res = await fetch(
-                    'https://rairo-pos-image-api.hf.space/process-receipt',
-                    { method: 'POST', body: formData }
-                  )
-                  const data = await res.json()
-                  if (data.success && data.data?.items?.length) {
-                    setReceiptData(data.data)
-                  } else {
-                    messageApi.error('Could not extract receipt info.')
-                  }
-                } catch (err: any) {
-                  messageApi.error('Failed to process image.')
-                } finally {
-                  setReceiptLoading(false)
-                }
-              }
-            }}
+          {/* All your receipt upload/import UI */}
+          <ReceiptProductImporter
+            companyName={companyName}
+            onClose={() => setImportDrawerOpen(false)}
           />
-          {receiptLoading && <p>Extracting details...</p>}
-          {receiptData && (
-            <div style={{ marginTop: 12 }}>
-              <p>
-                <b>Store:</b> {receiptData.store_name} <br />
-                <b>Date:</b> {receiptData.receipt_date} <br />
-                <b>Total:</b> R{receiptData.total_amount}
-              </p>
-              {receiptData.items && (
-                <ul>
-                  {receiptData.items.map((item, i) => (
-                    <li key={i}>
-                      {item.name} x{item.quantity} @ R{item.unit_price} — R
-                      {item.total_price} [{item.category}]
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <Button
-                type='primary'
-                style={{ marginTop: 10 }}
-                onClick={() => {
-                  setReceiptModal(false)
-                  setTimeout(() => {
-                    setEditingProduct(null)
-                    setAddMethod('manual')
-                    form.setFieldsValue({
-                      name: receiptData.items[0]?.name || '',
-                      type:
-                        receiptData.items[0]?.category === 'stock'
-                          ? 'product'
-                          : 'service',
-                      price: receiptData.items[0]?.unit_price || '',
-                      qty: receiptData.items[0]?.quantity || ''
-                    })
-                    if (isMobile) setDrawerVisible(true)
-                    else setModalVisible(true)
-                  }, 300)
-                }}
-                block
-              >
-                Use & Edit These Details
-              </Button>
-            </div>
-          )}
-        </Modal>
+        </Drawer>
       </div>
       <Modal
         open={restockModalVisible}
