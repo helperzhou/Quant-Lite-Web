@@ -13,6 +13,7 @@ import CashInScreen from './pages/cashin'
 import SaleScreen from './pages/tellers/pos'
 import { ConfigProvider, App as AntdApp } from 'antd'
 import ExpenseCaptureList from './pages/admin/expenses'
+import DrawingsForm from './pages/drawings'
 
 export default function App () {
   return (
@@ -42,6 +43,9 @@ export default function App () {
           </Route>
           <Route path='/cashin' element={<SystemLayout />}>
             <Route index element={<CashInScreen />} />
+          </Route>
+          <Route path='/drawings' element={<SystemLayout />}>
+            <Route index element={<DrawingsForm />} />
           </Route>
         </Routes>
       </AntdApp>

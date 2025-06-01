@@ -22,7 +22,8 @@ import {
   CreditCardOutlined,
   EditOutlined,
   MoneyCollectOutlined,
-  FileExclamationOutlined
+  FileExclamationOutlined,
+  ToolOutlined
 } from '@ant-design/icons'
 import { Outlet, useLocation, useNavigate, Link } from 'react-router-dom'
 import { useEffect, useState } from 'react'
@@ -115,6 +116,11 @@ const SystemLayout = () => {
       key: '/admin/expenses',
       icon: <FileExclamationOutlined />,
       label: 'Expenses'
+    },
+    {
+      key: '/drawings',
+      icon: <ToolOutlined />,
+      label: 'Drawings'
     }, // <--- Added
     { key: '/cashin', icon: <DollarOutlined />, label: 'Cashin' }
   ]
@@ -124,6 +130,11 @@ const SystemLayout = () => {
       key: '/tellers',
       icon: <HomeOutlined />,
       label: 'POS'
+    },
+    {
+      key: '/drawings',
+      icon: <ToolOutlined />,
+      label: 'Drawings'
     },
     {
       key: '/admin/credits',
@@ -157,6 +168,11 @@ const SystemLayout = () => {
           ? [
               { key: '/tellers', icon: <HomeOutlined />, label: 'POS' },
               {
+                key: '/drawings',
+                icon: <ToolOutlined />,
+                label: 'Drawings'
+              },
+              {
                 key: '/admin/credits',
                 icon: <CreditCardOutlined />,
                 label: 'Credits'
@@ -185,10 +201,15 @@ const SystemLayout = () => {
                 label: 'Credits'
               },
               {
+                key: '/drawings',
+                icon: <ToolOutlined />,
+                label: 'Drawings'
+              },
+              {
                 key: '/admin/expenses',
                 icon: <FileExclamationOutlined />,
                 label: 'Expenses'
-              }, // <--- Added
+              },
               { key: '/cashin', icon: <DollarOutlined />, label: 'Cashin' }
             ])
       ]}

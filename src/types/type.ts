@@ -43,16 +43,16 @@ export type Product = {
     name: string
     type: 'product' | 'service'
     price?: number         // for service
-    unitPrice?: number     // for product
+    unitPrice?: number
+    purchasePrice?: number
+    unitPurchasePrice?: number
     qty?: number
     minQty?: number
     maxQty?: number
     currentStock?: number
     availableValue?: number // for service
-    [key: string]: any     // if you use extra fields from AI receipt parsing
+    unit?: string
   }
-
-
 
   // ==================
   // CashIn
