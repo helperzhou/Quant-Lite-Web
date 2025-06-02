@@ -23,7 +23,8 @@ import {
   EditOutlined,
   MoneyCollectOutlined,
   FileExclamationOutlined,
-  ToolOutlined
+  ToolOutlined,
+  LineChartOutlined
 } from '@ant-design/icons'
 import { Outlet, useLocation, useNavigate, Link } from 'react-router-dom'
 import { useEffect, useState } from 'react'
@@ -121,7 +122,12 @@ const SystemLayout = () => {
       key: '/drawings',
       icon: <ToolOutlined />,
       label: 'Drawings'
-    }, // <--- Added
+    },
+    {
+      key: '/analytics',
+      icon: <LineChartOutlined />,
+      label: 'Analytics'
+    },
     { key: '/cashin', icon: <DollarOutlined />, label: 'Cashin' }
   ]
 
@@ -209,6 +215,11 @@ const SystemLayout = () => {
                 key: '/admin/expenses',
                 icon: <FileExclamationOutlined />,
                 label: 'Expenses'
+              },
+              {
+                key: '/analytics',
+                icon: <LineChartOutlined />,
+                label: 'Analytics'
               },
               { key: '/cashin', icon: <DollarOutlined />, label: 'Cashin' }
             ])
